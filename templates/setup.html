@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GranjaManager — Configuración inicial</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="card shadow-sm" style="width:100%;max-width:440px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-tree-fill text-success" style="font-size:2.5rem;"></i>
+                <h4 class="mt-2 mb-0 fw-bold text-success">GranjaManager</h4>
+                <small class="text-muted">Primera configuración — crea tu cuenta de administrador</small>
+            </div>
+            <form method="post" action="/auth/setup">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nombre completo</label>
+                    <input type="text" name="nombre" class="form-control" placeholder="Ej: Gerardo Sanz" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nombre de usuario</label>
+                    <input type="text" name="username" class="form-control" placeholder="Ej: gerardo" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Contraseña</label>
+                    <input type="password" name="password" class="form-control" required minlength="6">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                        WhatsApp <small class="text-muted fw-normal">(opcional — para alertas)</small>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">+34</span>
+                        <input type="tel" name="whatsapp" class="form-control" placeholder="600000000">
+                    </div>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Para activar alertas WhatsApp, envía <strong>"I allow callmebot to send me messages"</strong>
+                        al <strong>+34 644 59 71 90</strong> antes de usar la app.
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success w-100 fw-semibold">
+                    <i class="bi bi-check2-circle me-2"></i>Crear cuenta y empezar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}{{ animal.display_name }} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/animales" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success">{{ animal.display_name }}</h5>
+    <code class="small text-muted">{{ animal.crotal }}</code>
+    <span class="badge ms-auto
+        {% if animal.estado == 'gestante' %}bg-warning text-dark
+        {% elif animal.estado == 'lactante' %}bg-info text-dark
+        {% elif animal.estado == 'vacia' %}bg-secondary
+        {% elif animal.estado == 'semental' %}bg-primary
+        {% elif animal.estado == 'ternero' %}bg-light text-dark border
+        {% else %}bg-light text-muted border{% endif %}">
+        {{ animal.estado }}
+    </span>
+</div>
+
+<div class="row g-3">
+
+    <!-- Datos generales -->
+    <div class="col-12 col-md-5">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-card-list me-2"></i>Datos generales
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">Crotal</dt>
+                    <dd class="col-7"><code>{{ animal.crotal }}</code></dd>
+
+                    <dt class="col-5 text-muted">Nombre</dt>
+                    <dd class="col-7">{{ animal.nombre or '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Sexo</dt>
+                    <dd class="col-7">
+                        <i class="bi {% if animal.sexo == 'hembra' %}bi-gender-female text-danger{% else %}bi-gender-male text-primary{% endif %} me-1"></i>
+                        {{ animal.sexo | capitalize }}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Nacimiento</dt>
+                    <dd class="col-7">{{ animal.fecha_nacimiento.strftime('%d/%m/%Y') if animal.fecha_nacimiento else '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Madre</dt>
+                    <dd class="col-7">
+                        {% if animal.madre_crotal %}
+                        <a href="/animales/{{ animal.madre_crotal }}" class="text-decoration-none">{{ animal.madre_crotal }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Padre</dt>
+                    <dd class="col-7">
+                        {% if animal.padre_crotal %}
+                        <a href="/animales/{{ animal.padre_crotal }}" class="text-decoration-none">{{ animal.padre_crotal }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Lote</dt>
+                    <dd class="col-7">{{ animal.lote.nombre if animal.lote else '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Peso entrada</dt>
+                    <dd class="col-7">{{ ("%.1f kg"|format(animal.peso_entrada)) if animal.peso_entrada else '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Alta</dt>
+                    <dd class="col-7">{{ animal.fecha_alta.strftime('%d/%m/%Y') if animal.fecha_alta else '—' }}</dd>
+                </dl>
+
+                {% if animal.observaciones %}
+                <hr class="my-2">
+                <small class="text-muted">{{ animal.observaciones }}</small>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent py-2 d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditar">
+                    <i class="bi bi-pencil me-1"></i>Editar
+                </button>
+                {% if animal.sexo == 'hembra' and animal.estado in ['vacia', 'lactante'] %}
+                <a href="/reproduccion/cubricion/nueva?animal_crotal={{ animal.crotal }}"
+                   class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-heart-pulse me-1"></i>Cubrir
+                </a>
+                {% endif %}
+                {% if not animal.fecha_baja %}
+                <button class="btn btn-sm btn-outline-danger ms-auto" data-bs-toggle="modal" data-bs-target="#modalBaja">
+                    <i class="bi bi-x-circle me-1"></i>Baja
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial reproductivo -->
+    <div class="col-12 col-md-7">
+        <div class="card h-100">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold"><i class="bi bi-heart-pulse me-2 text-danger"></i>Historial reproductivo</span>
+                {% if animal.sexo == 'hembra' %}
+                <a href="/reproduccion/cubricion/nueva?animal_crotal={{ animal.crotal }}"
+                   class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-plus-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if reproducciones %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cubrición</th>
+                                <th>Parto est.</th>
+                                <th>Parto real</th>
+                                <th>Ternero</th>
+                                <th>Destete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reproducciones %}
+                            <tr>
+                                <td>{{ r.fecha_cubricion.strftime('%d/%m/%Y') }}</td>
+                                <td class="text-muted">{{ r.fecha_parto_estimada.strftime('%d/%m/%Y') if r.fecha_parto_estimada else '—' }}</td>
+                                <td>
+                                    {% if r.parto_fecha %}
+                                    <span class="badge bg-success bg-opacity-75">{{ r.parto_fecha.strftime('%d/%m/%Y') }}</span>
+                                    {% elif r.fecha_parto_estimada %}
+                                    <button class="btn btn-xs btn-outline-success py-0 px-1"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalParto{{ r.id }}">
+                                        <i class="bi bi-plus-lg"></i> Registrar
+                                    </button>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if r.ternero_crotal %}
+                                    <a href="/animales/{{ r.ternero_crotal }}" class="text-decoration-none small">
+                                        {{ r.ternero_crotal }}
+                                        <small class="text-muted">({{ r.ternero_sexo or '?' }}
+                                        {% if r.ternero_peso_nacimiento %} · {{ "%.0f"|format(r.ternero_peso_nacimiento) }}kg{% endif %})</small>
+                                    </a>
+                                    {% elif r.parto_tipo == 'aborto' %}
+                                    <span class="text-danger small">Aborto</span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if r.destete_fecha %}
+                                    <small>{{ r.destete_fecha.strftime('%d/%m/%Y') }}
+                                    {% if r.destete_peso %}· {{ "%.0f"|format(r.destete_peso) }}kg{% endif %}</small>
+                                    {% elif r.parto_fecha and r.ternero_vivo %}
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalDestete{{ r.id }}">
+                                        <i class="bi bi-scissors"></i>
+                                    </button>
+                                    {% else %}—{% endif %}
+                                </td>
+                            </tr>
+
+                            <!-- Modal registrar parto -->
+                            {% if not r.parto_fecha and r.fecha_parto_estimada %}
+                            <div class="modal fade" id="modalParto{{ r.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title">Registrar parto</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/reproduccion/parto/{{ r.id }}">
+                                            <div class="modal-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Fecha parto</label>
+                                                    <input type="date" name="parto_fecha" class="form-control form-control-sm" required>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Tipo</label>
+                                                    <select name="parto_tipo" class="form-select form-select-sm">
+                                                        <option value="normal">Normal</option>
+                                                        <option value="distócico">Distócico</option>
+                                                        <option value="aborto">Aborto</option>
+                                                        <option value="gemelar">Gemelar</option>
+                                                        <option value="mortinato">Mortinato</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Crotal ternero</label>
+                                                    <input type="text" name="ternero_crotal" class="form-control form-control-sm text-uppercase" placeholder="ES330...">
+                                                </div>
+                                                <div class="row g-1">
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Sexo</label>
+                                                        <select name="ternero_sexo" class="form-select form-select-sm">
+                                                            <option value="macho">Macho</option>
+                                                            <option value="hembra">Hembra</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Peso (kg)</label>
+                                                        <input type="number" step="0.1" name="ternero_peso" class="form-control form-control-sm">
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="ternero_vivo" value="1" id="vivo{{ r.id }}" checked>
+                                                        <label class="form-check-label small" for="vivo{{ r.id }}">Ternero vivo</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Modal destete -->
+                            {% if r.parto_fecha and r.ternero_vivo and not r.destete_fecha %}
+                            <div class="modal fade" id="modalDestete{{ r.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title">Registrar destete</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/reproduccion/destete/{{ r.id }}">
+                                            <div class="modal-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Fecha destete</label>
+                                                    <input type="date" name="destete_fecha" class="form-control form-control-sm" required>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Peso al destete (kg)</label>
+                                                    <input type="number" step="0.1" name="destete_peso" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Destino</label>
+                                                    <input type="text" name="destete_destino" class="form-control form-control-sm" placeholder="Cebadero, recría...">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    Sin registros reproductivos
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal editar -->
+<div class="modal fade" id="modalEditar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Editar {{ animal.display_name }}</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/animales/{{ animal.crotal }}/editar">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nombre</label>
+                        <input type="text" name="nombre" class="form-control" value="{{ animal.nombre or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Estado</label>
+                        <select name="estado" class="form-select">
+                            {% for e in ['gestante','lactante','vacia','semental','ternero','recria','vendido','muerto','baja'] %}
+                            <option value="{{ e }}" {% if animal.estado == e %}selected{% endif %}>{{ e | capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Lote</label>
+                        <select name="lote_id" class="form-select">
+                            <option value="">— Sin asignar —</option>
+                            {% for l in lotes %}
+                            <option value="{{ l.id }}" {% if animal.lote_id == l.id %}selected{% endif %}>{{ l.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Observaciones</label>
+                        <textarea name="observaciones" class="form-control" rows="2">{{ animal.observaciones or '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal baja -->
+<div class="modal fade" id="modalBaja" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2 bg-danger bg-opacity-10">
+                <h6 class="modal-title text-danger">Dar de baja</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/animales/{{ animal.crotal }}/baja">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Fecha baja</label>
+                        <input type="date" name="fecha_baja" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Motivo</label>
+                        <input type="text" name="motivo_baja" class="form-control form-control-sm"
+                               placeholder="Venta, muerte, sacrificio..." required>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-danger btn-sm">Confirmar baja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

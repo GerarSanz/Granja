@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Nueva cubrición — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/reproduccion" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Registrar cubrición</h5>
+</div>
+
+<div class="card" style="max-width:480px;">
+    <div class="card-body">
+        <form method="post" action="/reproduccion/cubricion/nueva">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Vaca <span class="text-danger">*</span></label>
+                <select name="animal_crotal" class="form-select" required>
+                    <option value="">— Selecciona la vaca —</option>
+                    {% for h in hembras %}
+                    <option value="{{ h.crotal }}"
+                        {% if animal_crotal_preseleccionado == h.crotal %}selected{% endif %}>
+                        {{ h.display_name }} ({{ h.crotal }}) — {{ h.estado }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Toro</label>
+                <select name="toro_crotal" class="form-select">
+                    <option value="">— Monta natural (sin especificar) —</option>
+                    {% for t in toros %}
+                    <option value="{{ t.crotal }}">
+                        {{ t.display_name }} ({{ t.crotal }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Con un solo toro en el rebaño puedes dejarlo en blanco.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Fecha de cubrición <span class="text-danger">*</span></label>
+                <input type="date" name="fecha_cubricion" class="form-control" value="{{ hoy }}" required>
+                <div class="form-text">El parto estimado se calculará automáticamente (+285 días).</div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning fw-semibold text-dark">
+                    <i class="bi bi-check2 me-1"></i>Registrar cubrición
+                </button>
+                <a href="/reproduccion" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

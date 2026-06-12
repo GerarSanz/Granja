@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{% if animal %}Editar{% else %}Nuevo animal{% endif %} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/animales" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success">
+        {% if animal %}Editar: {{ animal.display_name }}{% else %}Nuevo animal{% endif %}
+    </h5>
+</div>
+
+{% if error %}
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/animales/nuevo">
+            <div class="row g-3">
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Crotal oficial <span class="text-danger">*</span></label>
+                    <input type="text" name="crotal" class="form-control text-uppercase"
+                           placeholder="ES330XXXXXXXXX" required
+                           value="{{ animal.crotal if animal else '' }}"
+                           {% if animal %}readonly{% endif %}>
+                    <div class="form-text">Número de crotal SITRAN</div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Nombre</label>
+                    <input type="text" name="nombre" class="form-control"
+                           placeholder="Nombre propio (opcional)"
+                           value="{{ animal.nombre or '' if animal else '' }}">
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Sexo <span class="text-danger">*</span></label>
+                    <select name="sexo" class="form-select" required>
+                        <option value="hembra" {% if animal and animal.sexo == 'hembra' %}selected{% endif %}>Hembra</option>
+                        <option value="macho" {% if animal and animal.sexo == 'macho' %}selected{% endif %}>Macho</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Estado <span class="text-danger">*</span></label>
+                    <select name="estado" class="form-select" required>
+                        {% for e in estados %}
+                        <option value="{{ e.value }}"
+                            {% if animal and animal.estado == e.value %}selected
+                            {% elif not animal and e.value == 'vacia' %}selected{% endif %}>
+                            {{ e.value | capitalize }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Fecha de nacimiento</label>
+                    <input type="date" name="fecha_nacimiento" class="form-control"
+                           value="{{ animal.fecha_nacimiento.isoformat() if animal and animal.fecha_nacimiento else '' }}">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Madre (crotal)</label>
+                    <select name="madre_crotal" class="form-select">
+                        <option value="">— Sin registrar —</option>
+                        {% for h in hembras %}
+                        <option value="{{ h.crotal }}"
+                            {% if animal and animal.madre_crotal == h.crotal %}selected{% endif %}>
+                            {{ h.display_name }} ({{ h.crotal }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Padre (crotal)</label>
+                    <select name="padre_crotal" class="form-select">
+                        <option value="">— Sin registrar —</option>
+                        {% for m in machos %}
+                        <option value="{{ m.crotal }}"
+                            {% if animal and animal.padre_crotal == m.crotal %}selected{% endif %}>
+                            {{ m.display_name }} ({{ m.crotal }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Lote</label>
+                    <select name="lote_id" class="form-select">
+                        <option value="">— Sin asignar —</option>
+                        {% for l in lotes %}
+                        <option value="{{ l.id }}"
+                            {% if animal and animal.lote_id == l.id %}selected{% endif %}>
+                            {{ l.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Peso entrada (kg)</label>
+                    <input type="number" step="0.1" name="peso_entrada" class="form-control"
+                           value="{{ animal.peso_entrada or '' if animal else '' }}">
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Fecha alta</label>
+                    <input type="date" name="fecha_alta" class="form-control"
+                           value="{{ animal.fecha_alta.isoformat() if animal and animal.fecha_alta else '' }}">
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Observaciones</label>
+                    <textarea name="observaciones" class="form-control" rows="2">{{ animal.observaciones or '' if animal else '' }}</textarea>
+                </div>
+
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check2 me-1"></i>Guardar animal
+                </button>
+                <a href="/animales" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

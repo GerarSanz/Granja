@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Alimentación — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-basket3 me-2"></i>Alimentación</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalEntrada">
+            <i class="bi bi-plus-lg me-1"></i>Entrada stock
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCompra">
+            <i class="bi bi-cart-plus me-1"></i>Compra
+        </button>
+    </div>
+</div>
+
+<!-- Stock actual -->
+<div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-box-seam me-2 text-success"></i>Stock actual
+    </div>
+    <div class="card-body p-0">
+        {% if stocks %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Alimento</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Stock (kg)</th>
+                        <th class="text-end">Consumo/día</th>
+                        <th class="text-end">Días restantes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in stocks %}
+                    <tr class="{% if s.alerta %}table-warning{% endif %}">
+                        <td class="fw-semibold">
+                            {{ s.alimento.nombre }}
+                            {% if s.alimento.es_ecologico %}
+                            <span class="badge bg-success bg-opacity-75 ms-1" style="font-size:.6rem;">ECO</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="text-muted">{{ s.alimento.tipo | replace('_',' ') | capitalize }}</small></td>
+                        <td class="text-end fw-semibold">{{ "%.0f"|format(s.stock_kg) }}</td>
+                        <td class="text-end text-muted small">
+                            {% if s.consumo_dia_kg > 0 %}{{ "%.1f"|format(s.consumo_dia_kg) }}{% else %}—{% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if s.dias_restantes is not none %}
+                            <span class="badge {% if s.dias_restantes < 7 %}bg-danger{% elif s.dias_restantes < 21 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ "%.0f"|format(s.dias_restantes) }} días
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalConsumo"
+                                    onclick="setAlimentoConsumo({{ s.alimento.id }}, '{{ s.alimento.nombre }}')">
+                                <i class="bi bi-dash-lg"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-basket3 fs-2 d-block mb-2"></i>
+            Sin alimentos configurados.
+            <div class="mt-2">
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoAlimento">
+                    <i class="bi bi-plus-lg me-1"></i>Añadir alimento
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% if stocks %}
+    <div class="card-footer bg-transparent py-2">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalNuevoAlimento">
+            <i class="bi bi-plus-lg me-1"></i>Añadir alimento
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Raciones por estado productivo -->
+<div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-table me-2 text-primary"></i>Raciones por estado productivo (kg/animal/día)
+    </div>
+    <div class="card-body p-0">
+        {% set estados_labels = {
+            'gestante': 'Gestante',
+            'lactante': 'Lactante',
+            'vacia': 'Vacía',
+            'semental': 'Semental',
+            'ternero_lactante': 'Ternero lactante',
+            'ternero_destete': 'Ternero post-destete'
+        } %}
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Estado</th>
+                        {% for s in stocks %}
+                        <th class="text-center">{{ s.alimento.nombre }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for estado_key, estado_label in estados_labels.items() %}
+                    <tr>
+                        <td class="fw-semibold small">{{ estado_label }}</td>
+                        {% for s in stocks %}
+                        {% set racion = raciones | selectattr('estado_productivo', 'equalto', estado_key) | selectattr('alimento_id', 'equalto', s.alimento.id) | first %}
+                        <td class="text-center">
+                            <form method="post" action="/alimentacion/racion" class="d-inline">
+                                <input type="hidden" name="estado_productivo" value="{{ estado_key }}">
+                                <input type="hidden" name="alimento_id" value="{{ s.alimento.id }}">
+                                <input type="number" step="0.1" min="0" name="kg_por_animal_dia"
+                                       class="form-control form-control-sm text-center racion-input"
+                                       style="width:70px; display:inline-block;"
+                                       value="{{ racion.kg_por_animal_dia if racion else 0 }}"
+                                       onchange="this.form.submit()">
+                            </form>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-3 py-2">
+            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Modifica directamente cualquier valor para guardarlo.</small>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Entrada de stock -->
+<div class="modal fade" id="modalEntrada" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-2 text-success"></i>Entrada de stock</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/alimentacion/stock/entrada">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Alimento</label>
+                        <select name="alimento_id" class="form-select form-select-sm" required>
+                            {% for a in alimentos %}
+                            <option value="{{ a.id }}">{{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Cantidad (kg)</label>
+                        <input type="number" step="0.1" min="0.1" name="cantidad_kg" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Fecha</label>
+                        <input type="date" name="fecha" class="form-control form-control-sm"
+                               value="{{ now().strftime('%Y-%m-%d') if now is defined else '' }}" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Observaciones</label>
+                        <input type="text" name="observaciones" class="form-control form-control-sm" placeholder="Siega propia, entrega...">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Registrar entrada</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Consumo manual -->
+<div class="modal fade" id="modalConsumo" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="tituloConsumo"><i class="bi bi-dash-circle me-2 text-secondary"></i>Registrar consumo</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/alimentacion/stock/consumo">
+                <div class="modal-body">
+                    <input type="hidden" name="alimento_id" id="consumoAlimentoId">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Cantidad consumida (kg)</label>
+                        <input type="number" step="0.1" min="0.1" name="cantidad_kg" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Fecha</label>
+                        <input type="date" name="fecha" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Observaciones</label>
+                        <input type="text" name="observaciones" class="form-control form-control-sm">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-secondary btn-sm">Registrar consumo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Compra -->
+<div class="modal fade" id="modalCompra" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-cart-plus me-2 text-primary"></i>Registrar compra</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/alimentacion/compra">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Alimento</label>
+                            <select name="alimento_id" class="form-select form-select-sm" required>
+                                {% for a in alimentos %}
+                                <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Proveedor</label>
+                            <input type="text" name="proveedor" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha</label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Cantidad (kg)</label>
+                            <input type="number" step="0.1" name="cantidad_kg" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Importe total (€)</label>
+                            <input type="number" step="0.01" name="precio_total" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Nº Factura</label>
+                            <input type="text" name="num_factura" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">
+                                Certificado ecológico
+                                <small class="text-muted fw-normal">(obligatorio si es concentrado ecológico)</small>
+                            </label>
+                            <input type="text" name="certificado_eco" class="form-control form-control-sm"
+                                   placeholder="Nº certificado CCAE / CAAE">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto"><i class="bi bi-info-circle me-1"></i>La compra actualiza el stock automáticamente.</small>
+                    <button type="submit" class="btn btn-primary btn-sm">Guardar compra</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo alimento -->
+<div class="modal fade" id="modalNuevoAlimento" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Nuevo alimento</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/alimentacion/alimento/nuevo">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nombre</label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required placeholder="Ej: Heno propio 2024">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Tipo</label>
+                        <select name="tipo" class="form-select form-select-sm" required>
+                            <option value="heno_propio">Heno propio</option>
+                            <option value="heno_comprado">Heno comprado</option>
+                            <option value="concentrado">Concentrado</option>
+                            <option value="corrector_mineral">Corrector mineral</option>
+                            <option value="paja">Paja</option>
+                            <option value="ensilado">Ensilado</option>
+                        </select>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="es_ecologico" value="1" id="ecoCheck">
+                        <label class="form-check-label small" for="ecoCheck">Certificado ecológico</label>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Añadir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function setAlimentoConsumo(id, nombre) {
+    document.getElementById('consumoAlimentoId').value = id;
+    document.getElementById('tituloConsumo').innerHTML =
+        '<i class="bi bi-dash-circle me-2 text-secondary"></i>Consumo: ' + nombre;
+}
+
+// Fecha de hoy en modales
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(function(el) {
+        if (!el.value) el.value = hoy;
+    });
+});
+</script>
+
+{% endblock %}

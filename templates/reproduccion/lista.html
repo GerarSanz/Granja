@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Reproducción — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Reproducción</h5>
+    <a href="/reproduccion/cubricion/nueva" class="btn btn-warning btn-sm text-dark fw-semibold">
+        <i class="bi bi-plus-lg me-1"></i>Nueva cubrición
+    </a>
+</div>
+
+<!-- Resumen -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-warning bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-warning">{{ proximos_partos | length }}</div>
+            <div class="small text-muted">Partos próximos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-info bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-info">{{ pendientes_destete | length }}</div>
+            <div class="small text-muted">Pendientes destete</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-secondary bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-secondary">{{ vacas_vacias | length }}</div>
+            <div class="small text-muted">Vacías sin cubrir</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-success bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-success">{{ partos_recientes | length }}</div>
+            <div class="small text-muted">Partos recientes</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Próximos partos -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 bg-warning bg-opacity-10 fw-semibold">
+                <i class="bi bi-calendar-heart me-2 text-warning"></i>Próximos partos
+            </div>
+            <div class="card-body p-0">
+                {% if proximos_partos %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Vaca</th>
+                                <th>Cubrición</th>
+                                <th>Parto estimado</th>
+                                <th>Días</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in proximos_partos %}
+                            {% set dias = (r.fecha_parto_estimada - hoy).days %}
+                            <tr>
+                                <td>
+                                    <a href="/animales/{{ r.animal_crotal }}" class="text-decoration-none fw-semibold">
+                                        {{ r.animal.display_name if r.animal else r.animal_crotal }}
+                                    </a>
+                                </td>
+                                <td class="text-muted">{{ r.fecha_cubricion.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ r.fecha_parto_estimada.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <span class="badge {% if dias <= 7 %}bg-danger{% elif dias <= 15 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                        {{ dias }}d
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-xs btn-outline-success py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalParto{{ r.id }}"
+                                            title="Registrar parto">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Modal parto -->
+                            <div class="modal fade" id="modalParto{{ r.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title">Parto — {{ r.animal.display_name if r.animal else r.animal_crotal }}</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/reproduccion/parto/{{ r.id }}">
+                                            <div class="modal-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Fecha parto</label>
+                                                    <input type="date" name="parto_fecha" class="form-control form-control-sm" required>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Tipo</label>
+                                                    <select name="parto_tipo" class="form-select form-select-sm">
+                                                        <option value="normal">Normal</option>
+                                                        <option value="distócico">Distócico</option>
+                                                        <option value="aborto">Aborto</option>
+                                                        <option value="gemelar">Gemelar</option>
+                                                        <option value="mortinato">Mortinato</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Crotal ternero</label>
+                                                    <input type="text" name="ternero_crotal" class="form-control form-control-sm text-uppercase">
+                                                </div>
+                                                <div class="row g-1 mb-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Sexo</label>
+                                                        <select name="ternero_sexo" class="form-select form-select-sm">
+                                                            <option value="macho">Macho</option>
+                                                            <option value="hembra">Hembra</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Peso (kg)</label>
+                                                        <input type="number" step="0.1" name="ternero_peso" class="form-control form-control-sm">
+                                                    </div>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="ternero_vivo" value="1" checked id="vivo_r{{ r.id }}">
+                                                    <label class="form-check-label small" for="vivo_r{{ r.id }}">Ternero vivo</label>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar parto</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+                    Sin partos próximos
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pendientes de destete -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 bg-info bg-opacity-10 fw-semibold">
+                <i class="bi bi-scissors me-2 text-info"></i>Pendientes de destete
+            </div>
+            <div class="card-body p-0">
+                {% if pendientes_destete %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Madre</th>
+                                <th>Ternero</th>
+                                <th>Parto</th>
+                                <th>Edad</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in pendientes_destete %}
+                            {% set edad_dias = (hoy - r.parto_fecha).days %}
+                            <tr>
+                                <td>
+                                    <a href="/animales/{{ r.animal_crotal }}" class="text-decoration-none">
+                                        {{ r.animal.display_name if r.animal else r.animal_crotal }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if r.ternero_crotal %}
+                                    <a href="/animales/{{ r.ternero_crotal }}" class="text-decoration-none">
+                                        {{ r.ternero_crotal }}
+                                    </a>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="text-muted">{{ r.parto_fecha.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <span class="badge {% if edad_dias >= 180 %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}">
+                                        {{ edad_dias }}d
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-xs btn-outline-info py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalDestete{{ r.id }}"
+                                            title="Registrar destete">
+                                        <i class="bi bi-scissors"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Modal destete -->
+                            <div class="modal fade" id="modalDestete{{ r.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title">Destete — {{ r.ternero_crotal or 'ternero' }}</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/reproduccion/destete/{{ r.id }}">
+                                            <div class="modal-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Fecha destete</label>
+                                                    <input type="date" name="destete_fecha" class="form-control form-control-sm" required>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Peso (kg)</label>
+                                                    <input type="number" step="0.1" name="destete_peso" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small fw-semibold">Destino</label>
+                                                    <input type="text" name="destete_destino" class="form-control form-control-sm" placeholder="Cebadero, recría...">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-info btn-sm text-white">Guardar destete</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+                    Sin destetes pendientes
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Vacas vacías -->
+    {% if vacas_vacias %}
+    <div class="col-12">
+        <div class="card border-secondary">
+            <div class="card-header py-2 bg-secondary bg-opacity-10 fw-semibold">
+                <i class="bi bi-exclamation-circle me-2 text-secondary"></i>
+                Vacas vacías sin cubrir ({{ vacas_vacias | length }})
+            </div>
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for v in vacas_vacias %}
+                    <a href="/reproduccion/cubricion/nueva?animal_crotal={{ v.crotal }}"
+                       class="btn btn-sm btn-outline-secondary">
+                        {{ v.display_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

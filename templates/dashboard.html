@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h5>
+    <small class="text-muted">{{ hoy.strftime('%d/%m/%Y') }}</small>
+</div>
+
+<!-- Censo rápido -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-success bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-success">{{ total_vacas }}</div>
+            <div class="small text-muted">Vacas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-warning bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-warning">{{ gestantes }}</div>
+            <div class="small text-muted">Gestantes</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-info bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-info">{{ lactantes }}</div>
+            <div class="small text-muted">Lactantes</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-secondary bg-opacity-10 text-center py-2">
+            <div class="fs-3 fw-bold text-secondary">{{ terneros }}</div>
+            <div class="small text-muted">Terneros</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Próximos partos -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-warning bg-opacity-10 d-flex align-items-center justify-content-between py-2">
+                <span class="fw-semibold"><i class="bi bi-calendar-heart me-2 text-warning"></i>Próximos partos</span>
+                <a href="/reproduccion/cubricion/nueva" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-plus-lg"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if proximos_partos %}
+                <ul class="list-group list-group-flush">
+                    {% for rep in proximos_partos %}
+                    {% set dias = (rep.fecha_parto_estimada - hoy).days %}
+                    <li class="list-group-item d-flex align-items-center justify-content-between py-2">
+                        <div>
+                            <a href="/animales/{{ rep.animal_crotal }}" class="fw-semibold text-decoration-none text-dark">
+                                {{ rep.animal.display_name if rep.animal else rep.animal_crotal }}
+                            </a>
+                            <br><small class="text-muted">{{ rep.fecha_parto_estimada.strftime('%d/%m/%Y') }}</small>
+                        </div>
+                        <span class="badge {% if dias <= 7 %}bg-danger{% elif dias <= 15 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            {{ dias }} días
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+                    Sin partos en los próximos 30 días
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-danger bg-opacity-10 d-flex align-items-center justify-content-between py-2">
+                <span class="fw-semibold">
+                    <i class="bi bi-bell-fill me-2 text-danger"></i>Alertas
+                    {% if alertas_count > 0 %}
+                    <span class="badge bg-danger ms-1">{{ alertas_count }}</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body p-0">
+                {% if alertas %}
+                <ul class="list-group list-group-flush">
+                    {% for alerta in alertas %}
+                    <li class="list-group-item py-2">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi {% if alerta.nivel == 'urgente' %}bi-exclamation-triangle-fill text-danger{% else %}bi-info-circle-fill text-warning{% endif %} mt-1 flex-shrink-0"></i>
+                            <div class="flex-grow-1">
+                                <small>{{ alerta.mensaje }}</small>
+                                <div class="text-muted" style="font-size:.7rem;">{{ alerta.fecha_disparo.strftime('%d/%m/%Y') }}</div>
+                            </div>
+                            <form method="post" action="/alertas/{{ alerta.id }}/leer" class="flex-shrink-0">
+                                <button type="submit" class="btn btn-sm btn-link text-muted p-0" title="Marcar como leída">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+                    Sin alertas pendientes
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock alimentación en alerta -->
+    {% if stocks_alerta %}
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning bg-opacity-10 py-2">
+                <span class="fw-semibold"><i class="bi bi-basket3 me-2 text-warning"></i>Stock bajo — Alimentación</span>
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    {% for s in stocks_alerta %}
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-warning bg-opacity-10 rounded">
+                            <div>
+                                <strong>{{ s.alimento.nombre }}</strong>
+                                <div class="small text-muted">{{ "%.0f"|format(s.stock_kg) }} kg disponibles</div>
+                            </div>
+                            <span class="badge {% if s.dias_restantes and s.dias_restantes < 7 %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                {{ "%.0f"|format(s.dias_restantes) if s.dias_restantes else '?' }} días
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-2">
+                    <a href="/alimentacion" class="btn btn-sm btn-warning">
+                        <i class="bi bi-arrow-right me-1"></i>Gestionar stock
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Accesos rápidos -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header py-2">
+                <span class="fw-semibold"><i class="bi bi-lightning-fill me-2 text-primary"></i>Acciones rápidas</span>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/animales/nuevo" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>Nuevo animal
+                    </a>
+                    <a href="/reproduccion/cubricion/nueva" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-heart-pulse me-1"></i>Registrar cubrición
+                    </a>
+                    <a href="/alimentacion" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-basket3 me-1"></i>Actualizar stock
+                    </a>
+                    <a href="/animales?estado=vacia" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-search me-1"></i>Vacas vacías ({{ vacias }})
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
