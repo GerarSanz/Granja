@@ -113,69 +113,9 @@ def crear_animal(
     return RedirectResponse(url=f"/animales/{animal.crotal}", status_code=302)
 
 
-@router.get("/{crotal}", response_class=HTMLResponse)
-def ficha_animal(
-    crotal: str,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
-    if not animal:
-        raise HTTPException(status_code=404, detail="Animal no encontrado")
-    reproducciones = db.query(Reproduccion).filter(
-        Reproduccion.animal_crotal == crotal.upper()
-    ).order_by(Reproduccion.fecha_cubricion.desc()).all()
-    lotes = db.query(Lote).all()
-    return templates.TemplateResponse("animales/ficha.html", {
-        "request": request,
-        "animal": animal,
-        "reproducciones": reproducciones,
-        "lotes": lotes,
-        "current_user": current_user,
-    })
-
-
-@router.post("/{crotal}/editar")
-def editar_animal(
-    crotal: str,
-    nombre: str = Form(default=""),
-    estado: str = Form(...),
-    lote_id: str = Form(default=""),
-    observaciones: str = Form(default=""),
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
-    if not animal:
-        raise HTTPException(status_code=404)
-    animal.nombre = nombre.strip() or animal.nombre
-    animal.estado = estado
-    animal.lote_id = int(lote_id) if lote_id else None
-    animal.observaciones = observaciones.strip() or None
-    db.commit()
-    return RedirectResponse(url=f"/animales/{crotal}", status_code=302)
-
-
-@router.post("/{crotal}/baja")
-def dar_baja(
-    crotal: str,
-    fecha_baja: str = Form(...),
-    motivo_baja: str = Form(...),
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
-    if not animal:
-        raise HTTPException(status_code=404)
-    animal.fecha_baja = date.fromisoformat(fecha_baja)
-    animal.motivo_baja = motivo_baja
-    animal.estado = EstadoAnimal.vendido if "venta" in motivo_baja.lower() else EstadoAnimal.baja
-    db.commit()
-    return RedirectResponse(url="/animales", status_code=302)
-
-
 # ── Importación masiva ────────────────────────────────────────────────────────
+# IMPORTANTE: estos endpoints deben ir ANTES de /{crotal} para que FastAPI
+# no interprete "importar" como un valor de crotal.
 
 @router.get("/importar/plantilla")
 def descargar_plantilla(current_user: Usuario = Depends(get_current_user)):
@@ -303,3 +243,67 @@ async def importar_confirmar(
         "preview": None,
         "resultado": {"importados": importados, "errores": errores},
     })
+
+
+# ── Ficha y acciones por crotal ───────────────────────────────────────────────
+
+@router.get("/{crotal}", response_class=HTMLResponse)
+def ficha_animal(
+    crotal: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal no encontrado")
+    reproducciones = db.query(Reproduccion).filter(
+        Reproduccion.animal_crotal == crotal.upper()
+    ).order_by(Reproduccion.fecha_cubricion.desc()).all()
+    lotes = db.query(Lote).all()
+    return templates.TemplateResponse("animales/ficha.html", {
+        "request": request,
+        "animal": animal,
+        "reproducciones": reproducciones,
+        "lotes": lotes,
+        "current_user": current_user,
+    })
+
+
+@router.post("/{crotal}/editar")
+def editar_animal(
+    crotal: str,
+    nombre: str = Form(default=""),
+    estado: str = Form(...),
+    lote_id: str = Form(default=""),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
+    if not animal:
+        raise HTTPException(status_code=404)
+    animal.nombre = nombre.strip() or animal.nombre
+    animal.estado = estado
+    animal.lote_id = int(lote_id) if lote_id else None
+    animal.observaciones = observaciones.strip() or None
+    db.commit()
+    return RedirectResponse(url=f"/animales/{crotal}", status_code=302)
+
+
+@router.post("/{crotal}/baja")
+def dar_baja(
+    crotal: str,
+    fecha_baja: str = Form(...),
+    motivo_baja: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
+    if not animal:
+        raise HTTPException(status_code=404)
+    animal.fecha_baja = date.fromisoformat(fecha_baja)
+    animal.motivo_baja = motivo_baja
+    animal.estado = EstadoAnimal.vendido if "venta" in motivo_baja.lower() else EstadoAnimal.baja
+    db.commit()
+    return RedirectResponse(url="/animales", status_code=302)
