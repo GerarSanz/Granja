@@ -69,3 +69,82 @@ def setup(
     db.add(user)
     db.commit()
     return RedirectResponse(url="/auth/login", status_code=302)
+
+
+# ── Gestión de usuarios (solo admin) ─────────────────────────────────────────
+
+@router.get("/usuarios", response_class=HTMLResponse)
+def lista_usuarios(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    usuarios = db.query(Usuario).order_by(Usuario.nombre).all()
+    return templates.TemplateResponse("auth/usuarios.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "current_user": current_user,
+    })
+
+
+@router.post("/usuarios/nuevo")
+def crear_usuario(
+    nombre: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    rol: str = Form(default="operario"),
+    whatsapp: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403)
+    if db.query(Usuario).filter(Usuario.username == username).first():
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
+    user = Usuario(
+        nombre=nombre,
+        username=username,
+        password_hash=hash_password(password),
+        rol=rol,
+        whatsapp=whatsapp or None,
+    )
+    db.add(user)
+    db.commit()
+    return RedirectResponse(url="/auth/usuarios", status_code=302)
+
+
+@router.post("/usuarios/{user_id}/toggle")
+def toggle_usuario(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403)
+    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes desactivarte a ti mismo")
+    user.activo = not user.activo
+    db.commit()
+    return RedirectResponse(url="/auth/usuarios", status_code=302)
+
+
+@router.post("/usuarios/{user_id}/cambiar-password")
+def cambiar_password(
+    user_id: int,
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.admin and current_user.id != user_id:
+        raise HTTPException(status_code=403)
+    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+    user.password_hash = hash_password(password)
+    db.commit()
+    return RedirectResponse(url="/auth/usuarios", status_code=302)
