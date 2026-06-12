@@ -225,6 +225,7 @@ async def importar_confirmar(
             madre_crotal=f.madre_crotal or None,
             padre_crotal=f.padre_crotal or None,
             lote_id=lote_id,
+            raza=f.raza or "Asturiana de la Montaña",
             peso_entrada=f.peso_entrada,
             fecha_alta=f.fecha_alta or date.today(),
             observaciones=f.observaciones or None,

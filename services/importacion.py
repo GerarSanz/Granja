@@ -46,6 +46,9 @@ _ALIAS = {
     "fecha alta": "fecha_alta",
     "observaciones": "observaciones",
     "notas": "observaciones",
+    "raza": "raza",
+    "crotal_madre": "madre_crotal",
+    "crotal madre": "madre_crotal",
 }
 
 ESTADOS_VALIDOS = {"gestante", "lactante", "vacia", "vacía", "semental", "ternero", "recria", "recría"}
@@ -63,6 +66,7 @@ class FilaImportacion:
     madre_crotal: str = ""
     padre_crotal: str = ""
     lote: str = ""
+    raza: str = ""
     peso_entrada: Optional[float] = None
     fecha_alta: Optional[date] = None
     observaciones: str = ""
@@ -147,6 +151,7 @@ def _filas_a_registros(cabeceras: list, filas: list) -> list[FilaImportacion]:
         f.madre_crotal = datos.get("madre_crotal", "").upper()
         f.padre_crotal = datos.get("padre_crotal", "").upper()
         f.lote = datos.get("lote", "")
+        f.raza = datos.get("raza", "")
         f.observaciones = datos.get("observaciones", "")
 
         try:
