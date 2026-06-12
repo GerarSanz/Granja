@@ -141,12 +141,14 @@ def _filas_a_registros(cabeceras: list, filas: list) -> list[FilaImportacion]:
             continue  # fila vacía
 
         f = FilaImportacion(fila=num_fila)
-        datos = {mapa[i]: str(v).strip() if v is not None else "" for i, v in enumerate(valores) if mapa.get(i)}
+        # raw preserva datetime objects de openpyxl para parseo correcto de fechas
+        raw = {mapa[i]: v for i, v in enumerate(valores) if mapa.get(i)}
+        datos = {k: str(v).strip() if v is not None else "" for k, v in raw.items()}
 
         f.crotal = datos.get("crotal", "").upper()
         f.nombre = datos.get("nombre", "")
         f.sexo = _parse_sexo(datos.get("sexo", ""))
-        f.fecha_nacimiento = _parse_fecha(datos.get("fecha_nacimiento"))
+        f.fecha_nacimiento = _parse_fecha(raw.get("fecha_nacimiento"))
         f.estado = datos.get("estado", "vacia").lower().strip()
         f.madre_crotal = datos.get("madre_crotal", "").upper()
         f.padre_crotal = datos.get("padre_crotal", "").upper()
@@ -159,7 +161,7 @@ def _filas_a_registros(cabeceras: list, filas: list) -> list[FilaImportacion]:
         except ValueError:
             f.avisos.append("Peso no numérico — ignorado")
 
-        f.fecha_alta = _parse_fecha(datos.get("fecha_alta"))
+        f.fecha_alta = _parse_fecha(raw.get("fecha_alta"))
 
         resultado.append(_validar_fila(f))
 
