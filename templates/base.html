@@ -41,6 +41,35 @@
                         <i class="bi bi-basket3"></i> Alimentación
                     </a>
                 </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if '/sanidad' in request.url.path or '/lotes' in request.url.path or '/economia' in request.url.path or '/exportacion' in request.url.path %}active{% endif %}"
+                       href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-grid"></i> Más
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item {% if '/sanidad' in request.url.path %}active{% endif %}" href="/sanidad">
+                                <i class="bi bi-capsule me-2 text-danger"></i>Sanidad
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if '/lotes' in request.url.path %}active{% endif %}" href="/lotes">
+                                <i class="bi bi-map me-2 text-success"></i>Lotes y Parcelas
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if '/economia' in request.url.path %}active{% endif %}" href="/economia">
+                                <i class="bi bi-cash-stack me-2 text-warning"></i>Economía
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item {% if '/exportacion' in request.url.path %}active{% endif %}" href="/exportacion">
+                                <i class="bi bi-download me-2 text-primary"></i>Exportaciones
+                            </a>
+                        </li>
+                    </ul>
+                </li>
             </ul>
             <ul class="navbar-nav">
                 {% if alertas_count is defined and alertas_count > 0 %}
@@ -71,5 +100,6 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
 </body>
 </html>

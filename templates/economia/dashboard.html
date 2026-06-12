@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Economía {{ anio }} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-cash-stack me-2"></i>Economía {{ anio }}</h5>
+    <div class="d-flex gap-2 align-items-center">
+        <a href="/economia?anio={{ anio - 1 }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+        <span class="fw-semibold">{{ anio }}</span>
+        <a href="/economia?anio={{ anio + 1 }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+        <button class="btn btn-outline-success btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#modalVenta">
+            <i class="bi bi-plus-lg me-1"></i>Venta
+        </button>
+        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalGasto">
+            <i class="bi bi-plus-lg me-1"></i>Gasto
+        </button>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row g-2 mb-3">
+    <div class="col-4">
+        <div class="card border-0 bg-success bg-opacity-10 text-center py-2">
+            <div class="fs-4 fw-bold text-success">{{ "%.0f €"|format(total_ingresos) }}</div>
+            <div class="small text-muted">Ingresos</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card border-0 bg-danger bg-opacity-10 text-center py-2">
+            <div class="fs-4 fw-bold text-danger">{{ "%.0f €"|format(total_gastos) }}</div>
+            <div class="small text-muted">Gastos</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card border-0 {% if margen >= 0 %}bg-success{% else %}bg-danger{% endif %} bg-opacity-10 text-center py-2">
+            <div class="fs-4 fw-bold {% if margen >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ "%.0f €"|format(margen) }}
+            </div>
+            <div class="small text-muted">Margen</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Ingresos por ventas -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-arrow-up-circle me-2 text-success"></i>Ventas
+            </div>
+            <div class="card-body p-0">
+                {% if ventas %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Animal</th>
+                                <th>Tipo</th>
+                                <th class="d-none d-md-table-cell">Comprador</th>
+                                <th class="text-end">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in ventas %}
+                            <tr>
+                                <td class="text-muted">{{ v.fecha.strftime('%d/%m/%y') }}</td>
+                                <td>
+                                    <a href="/animales/{{ v.animal_crotal }}" class="text-decoration-none">
+                                        {{ v.animal.display_name if v.animal else v.animal_crotal }}
+                                    </a>
+                                    {% if v.kg_peso %}
+                                    <br><small class="text-muted">{{ "%.0f"|format(v.kg_peso) }} kg
+                                    {% if v.precio_kg %}· {{ "%.2f"|format(v.precio_kg) }} €/kg{% endif %}</small>
+                                    {% endif %}
+                                </td>
+                                <td><small class="text-muted">{{ v.tipo_venta | replace('_',' ') }}</small></td>
+                                <td class="d-none d-md-table-cell text-muted small">{{ v.comprador or '—' }}</td>
+                                <td class="text-end fw-semibold text-success">{{ "%.0f €"|format(v.importe_total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="4" class="fw-semibold text-end">Total</td>
+                                <td class="text-end fw-bold text-success">{{ "%.0f €"|format(total_ingresos) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin ventas en {{ anio }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Gastos -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-arrow-down-circle me-2 text-danger"></i>Gastos
+            </div>
+            <div class="card-body p-0">
+                {% if gastos %}
+                <!-- Resumen por categoría -->
+                <div class="px-3 pt-2 pb-1">
+                    <div class="row g-1">
+                        {% for cat, total in gastos_por_categoria.items() %}
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between small py-1 border-bottom">
+                                <span class="text-muted">{{ cat | replace('_',' ') | capitalize }}</span>
+                                <span class="fw-semibold text-danger">{{ "%.0f €"|format(total) }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Concepto</th>
+                                <th class="d-none d-md-table-cell">Categoría</th>
+                                <th class="text-end">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gastos %}
+                            <tr>
+                                <td class="text-muted">{{ g.fecha.strftime('%d/%m/%y') }}</td>
+                                <td>
+                                    {{ g.concepto }}
+                                    {% if g.proveedor %}
+                                    <br><small class="text-muted">{{ g.proveedor }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <small class="text-muted">{{ g.categoria | replace('_',' ') }}</small>
+                                </td>
+                                <td class="text-end fw-semibold text-danger">{{ "%.0f €"|format(g.importe) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="3" class="fw-semibold text-end">Total</td>
+                                <td class="text-end fw-bold text-danger">{{ "%.0f €"|format(total_gastos) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin gastos en {{ anio }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva venta -->
+<div class="modal fade" id="modalVenta" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-cash me-2 text-success"></i>Registrar venta</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/economia/venta/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Animal <span class="text-danger">*</span></label>
+                            <select name="animal_crotal" class="form-select form-select-sm" required>
+                                <option value="">— Selecciona animal —</option>
+                                {% for a in animales_activos %}
+                                <option value="{{ a.crotal }}">{{ a.display_name }} ({{ a.crotal }}) — {{ a.estado }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Tipo venta</label>
+                            <select name="tipo_venta" class="form-select form-select-sm">
+                                {% for t in tipos_venta %}
+                                <option value="{{ t.value }}">{{ t.value | replace('_',' ') | capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Peso vivo (kg)</label>
+                            <input type="number" step="0.1" name="kg_peso" class="form-control form-control-sm" id="ventaKg">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Precio (€/kg)</label>
+                            <input type="number" step="0.01" name="precio_kg" class="form-control form-control-sm" id="ventaPrecioKg" oninput="calcularImporte()">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Importe total (€) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" name="importe_total" class="form-control form-control-sm fw-bold" id="ventaImporte" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Comprador</label>
+                            <input type="text" name="comprador" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Nº Factura</label>
+                            <input type="text" name="num_factura" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto"><i class="bi bi-info-circle me-1"></i>El animal quedará registrado como vendido.</small>
+                    <button type="submit" class="btn btn-success btn-sm">Guardar venta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo gasto -->
+<div class="modal fade" id="modalGasto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-receipt me-2 text-danger"></i>Registrar gasto</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/economia/gasto/nuevo">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Categoría</label>
+                            <select name="categoria" class="form-select form-select-sm">
+                                {% for c in categorias_gasto %}
+                                <option value="{{ c.value }}">{{ c.value | replace('_',' ') | capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Concepto <span class="text-danger">*</span></label>
+                            <input type="text" name="concepto" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Importe (€) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="importe" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Proveedor</label>
+                            <input type="text" name="proveedor" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nº Factura</label>
+                            <input type="text" name="num_factura" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-danger btn-sm">Guardar gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function calcularImporte() {
+    const kg = parseFloat(document.getElementById('ventaKg').value) || 0;
+    const precio = parseFloat(document.getElementById('ventaPrecioKg').value) || 0;
+    if (kg > 0 && precio > 0) {
+        document.getElementById('ventaImporte').value = (kg * precio).toFixed(2);
+    }
+}
+document.getElementById('ventaKg').addEventListener('input', calcularImporte);
+
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('.modal input[type="date"]').forEach(el => {
+        if (!el.value) el.value = hoy;
+    });
+});
+</script>
+{% endblock %}

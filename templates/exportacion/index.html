@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Exportaciones — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-download me-2"></i>Exportaciones</h5>
+</div>
+
+<div class="row g-3">
+
+    <!-- SITRAN -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>SITRAN — Movimientos
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Ficheros CSV para comunicar altas y bajas al Sistema de Identificación y Trazabilidad Animal.
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Altas de animales</label>
+                    <form method="get" action="/exportacion/sitran/altas" class="d-flex gap-2 flex-wrap">
+                        <input type="date" name="desde" class="form-control form-control-sm" style="width:140px;" placeholder="Desde">
+                        <input type="date" name="hasta" class="form-control form-control-sm" style="width:140px;" placeholder="Hasta">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-download me-1"></i>Descargar altas
+                        </button>
+                    </form>
+                </div>
+
+                <div>
+                    <label class="form-label small fw-semibold">Bajas de animales</label>
+                    <form method="get" action="/exportacion/sitran/bajas" class="d-flex gap-2 flex-wrap">
+                        <input type="date" name="desde" class="form-control form-control-sm" style="width:140px;" placeholder="Desde">
+                        <input type="date" name="hasta" class="form-control form-control-sm" style="width:140px;" placeholder="Hasta">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-download me-1"></i>Descargar bajas
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent py-2">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Formato CSV separado por ; · Codificación UTF-8 · Compatible con el portal SITRAN del MAPA
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARCA / Cuaderno de campo -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-journal-medical me-2 text-success"></i>ARCA — Cuaderno de campo ecológico
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Registro de tratamientos veterinarios para el cuaderno de explotación ecológica.
+                    Obligatorio para la certificación CCAE/CAAE y auditorías REGEPA.
+                </p>
+
+                <div>
+                    <label class="form-label small fw-semibold">Exportar tratamientos</label>
+                    <form method="get" action="/exportacion/arca/cuaderno" class="d-flex gap-2 flex-wrap">
+                        <input type="date" name="desde" class="form-control form-control-sm" style="width:140px;" placeholder="Desde">
+                        <input type="date" name="hasta" class="form-control form-control-sm" style="width:140px;" placeholder="Hasta">
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-download me-1"></i>Descargar cuaderno
+                        </button>
+                    </form>
+                    <div class="form-text mt-1">Deja las fechas vacías para exportar el historial completo.</div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent py-2">
+                <small class="text-muted">
+                    <i class="bi bi-leaf-fill text-success me-1"></i>
+                    Incluye: medicamento, principio activo, dosis, vía, veterinario, tiempo de espera, certificación ecológica
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Censo PAC -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-card-list me-2 text-warning"></i>Censo actual — PAC / REGEPA
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Listado completo del censo actual con crotal, estado, lote y genealogía.
+                    Útil para declaraciones PAC, inspecciones REGEPA Asturias y revisiones veterinarias.
+                </p>
+                <a href="/exportacion/censo" class="btn btn-warning btn-sm text-dark">
+                    <i class="bi bi-download me-1"></i>Descargar censo actual
+                </a>
+            </div>
+            <div class="card-footer bg-transparent py-2">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Solo animales activos · Formato CSV · Fecha de generación en el nombre del fichero
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instrucciones REGEPA -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100 border-info">
+            <div class="card-header py-2 bg-info bg-opacity-10 fw-semibold">
+                <i class="bi bi-info-circle me-2 text-info"></i>REGEPA Asturias — Instrucciones
+            </div>
+            <div class="card-body">
+                <ol class="small mb-0 ps-3">
+                    <li class="mb-2">Accede a la sede electrónica de la Consejería de Medio Rural con tu certificado digital o Cl@ve.</li>
+                    <li class="mb-2">Descarga el <strong>cuaderno ARCA</strong> desde esta pantalla y adjúntalo en el formulario de comunicación anual.</li>
+                    <li class="mb-2">Para movimientos individuales, usa los CSV de <strong>altas/bajas SITRAN</strong> y súbelos al portal del MAPA.</li>
+                    <li class="mb-0">Si tienes el <strong>código REGA</strong>, configúralo en <a href="#" class="text-decoration-none">Ajustes</a> para que aparezca en todas las exportaciones.</li>
+                </ol>
+            </div>
+            <div class="card-footer bg-transparent py-2">
+                <small class="text-muted">
+                    <i class="bi bi-telephone me-1"></i>
+                    Dudas: Consejería de Medio Rural y Cohesión Territorial del Principado de Asturias
+                </small>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

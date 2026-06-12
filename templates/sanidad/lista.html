@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Sanidad — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Sanidad</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalTratamiento">
+            <i class="bi bi-plus-lg me-1"></i>Tratamiento
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalVacuna">
+            <i class="bi bi-shield-plus me-1"></i>Plan vacunal
+        </button>
+    </div>
+</div>
+
+<!-- Tiempos de espera activos -->
+{% if en_espera %}
+<div class="card border-warning mb-3">
+    <div class="card-header py-2 bg-warning bg-opacity-10 fw-semibold">
+        <i class="bi bi-clock-history me-2 text-warning"></i>Animales en tiempo de espera
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr><th>Animal</th><th>Medicamento</th><th>Fin espera</th><th>Días restantes</th></tr>
+                </thead>
+                <tbody>
+                    {% for t in en_espera %}
+                    {% set dias = (t.fecha_fin_espera - hoy).days %}
+                    <tr>
+                        <td>
+                            <a href="/animales/{{ t.animal_crotal }}" class="text-decoration-none fw-semibold">
+                                {{ t.animal.display_name if t.animal else t.animal_crotal }}
+                            </a>
+                        </td>
+                        <td class="small">{{ t.medicamento }}</td>
+                        <td>{{ t.fecha_fin_espera.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <span class="badge {% if dias <= 3 %}bg-danger{% elif dias <= 7 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {{ dias }} días
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+    <!-- Plan vacunal -->
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-shield-check me-2 text-primary"></i>Plan vacunal
+            </div>
+            <div class="card-body p-0">
+                {% if plan_vacunal %}
+                <ul class="list-group list-group-flush">
+                    {% for pv in plan_vacunal %}
+                    {% set urgente = pv.proxima_fecha and (pv.proxima_fecha - hoy).days <= 14 %}
+                    <li class="list-group-item py-2 {% if urgente %}list-group-item-warning{% endif %}">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <div>
+                                <div class="fw-semibold small">{{ pv.nombre }}</div>
+                                <div class="text-muted" style="font-size:.75rem;">
+                                    {{ pv.vacuna }}
+                                    {% if pv.aplica_a != 'todo_rebano' %}· {{ pv.aplica_a | replace('_',' ') }}{% endif %}
+                                    {% if pv.periodicidad_meses %}· cada {{ pv.periodicidad_meses }} meses{% endif %}
+                                </div>
+                                {% if pv.proxima_fecha %}
+                                <small class="{% if urgente %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                    Próxima: {{ pv.proxima_fecha.strftime('%d/%m/%Y') }}
+                                </small>
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-xs btn-outline-success flex-shrink-0"
+                                    data-bs-toggle="modal" data-bs-target="#modalCompletar{{ pv.id }}"
+                                    title="Marcar como realizada">
+                                <i class="bi bi-check2"></i>
+                            </button>
+                        </div>
+                    </li>
+
+                    <!-- Modal completar vacuna -->
+                    <div class="modal fade" id="modalCompletar{{ pv.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-sm">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title">Vacuna realizada: {{ pv.nombre }}</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/sanidad/vacuna/{{ pv.id }}/completar">
+                                    <div class="modal-body">
+                                        <label class="form-label small fw-semibold">Fecha de realización</label>
+                                        <input type="date" name="fecha_realizada" class="form-control form-control-sm"
+                                               value="{{ hoy.isoformat() }}" required>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Confirmar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin plan vacunal configurado</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos tratamientos -->
+    <div class="col-12 col-lg-7">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-capsule me-2 text-danger"></i>Últimos tratamientos
+            </div>
+            <div class="card-body p-0">
+                {% if tratamientos %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Animal</th>
+                                <th>Medicamento</th>
+                                <th class="d-none d-md-table-cell">Dosis / Vía</th>
+                                <th>Espera</th>
+                                <th>Eco</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tratamientos %}
+                            <tr>
+                                <td class="text-muted">{{ t.fecha.strftime('%d/%m/%y') }}</td>
+                                <td>
+                                    <a href="/animales/{{ t.animal_crotal }}" class="text-decoration-none">
+                                        {{ t.animal.display_name if t.animal else t.animal_crotal }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span>{{ t.medicamento }}</span>
+                                    {% if t.principio_activo %}
+                                    <br><small class="text-muted">{{ t.principio_activo }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted">
+                                    {{ t.dosis or '—' }}
+                                    {% if t.via_administracion %}· {{ t.via_administracion }}{% endif %}
+                                </td>
+                                <td>
+                                    {% if t.dias_tiempo_espera %}
+                                    <span class="badge bg-warning text-dark">{{ t.dias_tiempo_espera }}d</span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if t.es_ecologico %}
+                                    <i class="bi bi-leaf-fill text-success" title="Producto ecológico"></i>
+                                    {% else %}
+                                    <i class="bi bi-dash text-muted"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin tratamientos registrados</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo tratamiento -->
+<div class="modal fade" id="modalTratamiento" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-capsule me-2 text-danger"></i>Nuevo tratamiento</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/sanidad/tratamiento/nuevo">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Animal <span class="text-danger">*</span></label>
+                            <select name="animal_crotal" class="form-select form-select-sm" required>
+                                <option value="">— Selecciona animal —</option>
+                                {% for a in animales %}
+                                <option value="{{ a.crotal }}">{{ a.display_name }} ({{ a.crotal }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm"
+                                   value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Días tiempo espera</label>
+                            <input type="number" min="0" name="dias_tiempo_espera" class="form-control form-control-sm" value="0">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Medicamento <span class="text-danger">*</span></label>
+                            <input type="text" name="medicamento" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Principio activo</label>
+                            <input type="text" name="principio_activo" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Dosis</label>
+                            <input type="text" name="dosis" class="form-control form-control-sm" placeholder="Ej: 5 ml/100kg">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Vía</label>
+                            <select name="via_administracion" class="form-select form-select-sm">
+                                <option value="">—</option>
+                                <option>oral</option>
+                                <option>inyectable IM</option>
+                                <option>inyectable IV</option>
+                                <option>inyectable SC</option>
+                                <option>tópico</option>
+                                <option>intramamario</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Veterinario</label>
+                            <input type="text" name="veterinario" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Nº Receta</label>
+                            <input type="text" name="num_receta" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-3 d-flex align-items-end">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" name="es_ecologico" value="1" id="ecoTrat">
+                                <label class="form-check-label small" for="ecoTrat">
+                                    <i class="bi bi-leaf-fill text-success me-1"></i>Producto ecológico
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-danger btn-sm">Guardar tratamiento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva vacuna plan -->
+<div class="modal fade" id="modalVacuna" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-shield-plus me-2 text-primary"></i>Añadir al plan vacunal</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/sanidad/vacuna/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" class="form-control form-control-sm" required placeholder="Ej: Vacunación IBR anual">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Vacuna / producto <span class="text-danger">*</span></label>
+                            <input type="text" name="vacuna" class="form-control form-control-sm" required placeholder="Ej: Bovilis IBR">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Aplica a</label>
+                            <select name="aplica_a" class="form-select form-select-sm">
+                                <option value="todo_rebano">Todo el rebaño</option>
+                                <option value="hembras">Hembras</option>
+                                <option value="machos">Machos</option>
+                                <option value="terneros">Terneros</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Periodicidad (meses)</label>
+                            <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm" placeholder="Ej: 12">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Próxima fecha prevista</label>
+                            <input type="date" name="proxima_fecha" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-primary btn-sm">Añadir al plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
