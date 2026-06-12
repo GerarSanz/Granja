@@ -1,6 +1,6 @@
 # GranjaManager — Fly.io deployment
 app = "granja-manager"
-primary_region = "mad"
+primary_region = "cdg"
 
 [build]
   dockerfile = "Dockerfile"
