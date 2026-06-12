@@ -75,7 +75,11 @@ class FilaImportacion:
 
 
 def _normalizar_clave(clave: str) -> str:
-    return _ALIAS.get(clave.strip().lower().replace(" ", "_"), "")
+    limpia = clave.strip().lower()
+    limpia = limpia.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    limpia = " ".join(limpia.split())  # colapsa múltiples espacios
+    limpia = limpia.replace(" ", "_")
+    return _ALIAS.get(limpia, "")
 
 
 def _parse_fecha(valor) -> Optional[date]:
