@@ -213,6 +213,13 @@ function cambiarCapa(nombre, btn) {
     btn.classList.add('active');
 }
 
+const SIGPAC_REF = {
+    prov: "{{ '%02d' % (parcela.provincia_codigo or 33) }}",
+    mun:  "{{ '%03d' % (parcela.municipio_codigo or 0) }}",
+    pol:  "{{ '%03d' % (parcela.poligono or 0) }}",
+    par:  "{{ '%05d' % (parcela.parcela_sigpac or 0) }}"
+};
+
 async function cargarSigpac() {
     const btn = document.getElementById('btnSigpac');
     const info = document.getElementById('sigpacInfo');
@@ -220,45 +227,62 @@ async function cargarSigpac() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cargando...';
     info.innerHTML = '';
 
-    try {
-        const resp = await fetch(`/lotes/parcela/${PARCELA_ID}/sigpac`);
-        const data = await resp.json();
+    // Llamada directa desde el navegador (evita el problema DNS del servidor en París)
+    const { prov, mun, pol, par } = SIGPAC_REF;
+    const urls = [
+        `https://sigpac.mapa.gob.es/fega/ServiciosVisorSigpac/query/recintos/${prov}/${mun}/0/0/${pol}/${par}.geojson`,
+        `https://sigpac.mapama.gob.es/fega/ServiciosVisorSigpac/query/recintos/${prov}/${mun}/0/0/${pol}/${par}.geojson`,
+    ];
 
-        if (data.error) {
-            info.innerHTML = `<div class="alert alert-warning py-1">${data.error}</div>`;
-            return;
+    let data = null;
+    let lastErr = '';
+    for (const url of urls) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            data = await resp.json();
+            break;
+        } catch (e) {
+            lastErr = e.message;
         }
-
-        if (sigpacLayer) mapa.removeLayer(sigpacLayer);
-
-        sigpacLayer = L.geoJSON(data, {
-            style: { color: '#198754', weight: 2, fillOpacity: 0.15 },
-            onEachFeature(feature, layer) {
-                const p = feature.properties || {};
-                const sup = p.dn_surface ? (p.dn_surface / 10000).toFixed(4) + ' ha' : '—';
-                const uso = p.uso_sigpac || '—';
-                layer.bindPopup(
-                    `<strong>Recinto ${p.dn_oid || ''}</strong><br>Uso: ${uso}<br>Superficie: ${sup}`
-                );
-            }
-        }).addTo(mapa);
-
-        mapa.fitBounds(sigpacLayer.getBounds(), { padding: [20, 20] });
-
-        const features = data.features || [];
-        const supTotal = features.reduce((acc, f) => {
-            return acc + (f.properties?.dn_surface || 0);
-        }, 0);
-        info.innerHTML = `<div class="alert alert-success py-1 mb-0">
-            ${features.length} recinto(s) — ${(supTotal / 10000).toFixed(4)} ha oficiales
-        </div>`;
-
-        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Cargado';
-    } catch (e) {
-        info.innerHTML = `<div class="alert alert-danger py-1">Error de conexión con SIGPAC</div>`;
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-layers me-1"></i>Cargar en mapa';
     }
+
+    if (!data) {
+        // CORS o DNS bloqueado — mostrar solo la capa WMS y centrar en Asturias
+        info.innerHTML = `<div class="alert alert-warning py-1 mb-0">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            No se pudo obtener geometría (${lastErr}). Usa la capa <strong>SIGPAC</strong>
+            para ver los recintos sobre el mapa.
+        </div>`;
+        // Activar capa SIGPAC automáticamente
+        cambiarCapa('sigpac', document.querySelectorAll('#capasControl .btn')[2]);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-layers me-1"></i>Ver capa SIGPAC';
+        return;
+    }
+
+    if (sigpacLayer) mapa.removeLayer(sigpacLayer);
+
+    sigpacLayer = L.geoJSON(data, {
+        style: { color: '#198754', weight: 2.5, fillColor: '#198754', fillOpacity: 0.15 },
+        onEachFeature(feature, layer) {
+            const p = feature.properties || {};
+            const sup = p.dn_surface ? (p.dn_surface / 10000).toFixed(4) + ' ha' : '—';
+            const uso = p.uso_sigpac || '—';
+            layer.bindPopup(
+                `<strong>Recinto ${p.dn_oid || ''}</strong><br>Uso: ${uso}<br>Superficie: ${sup}`
+            );
+        }
+    }).addTo(mapa);
+
+    mapa.fitBounds(sigpacLayer.getBounds(), { padding: [20, 20] });
+
+    const features = data.features || [];
+    const supTotal = features.reduce((acc, f) => acc + (f.properties?.dn_surface || 0), 0);
+    info.innerHTML = `<div class="alert alert-success py-1 mb-0">
+        ${features.length} recinto(s) — ${(supTotal / 10000).toFixed(4)} ha oficiales
+    </div>`;
+    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Cargado';
 }
 
 // Cargar automáticamente si hay referencia SIGPAC
