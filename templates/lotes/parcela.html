@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}{{ parcela.nombre }} — GranjaManager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/lotes" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0"><i class="bi bi-map-fill me-2 text-success"></i>{{ parcela.nombre }}</h4>
+    <button class="btn btn-sm btn-outline-primary ms-auto" data-bs-toggle="modal" data-bs-target="#modalEditar">
+        <i class="bi bi-pencil"></i> Editar
+    </button>
+</div>
+
+<div class="row g-3">
+    <!-- Datos y mapa -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6 text-muted">Superficie</dt>
+                    <dd class="col-6">{{ "%.2f"|format(parcela.hectareas) }} ha</dd>
+                    <dt class="col-6 text-muted">Municipio</dt>
+                    <dd class="col-6">{{ parcela.municipio or '—' }}</dd>
+                    <dt class="col-6 text-muted">Ref. catastral</dt>
+                    <dd class="col-6 text-break">{{ parcela.referencia_catastral or '—' }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Referencia SIGPAC -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2 bg-success bg-opacity-10">
+                <strong class="small"><i class="bi bi-geo-alt-fill text-success me-1"></i>SIGPAC</strong>
+            </div>
+            <div class="card-body">
+                {% if parcela.poligono and parcela.parcela_sigpac and parcela.municipio_codigo %}
+                <dl class="row mb-2 small">
+                    <dt class="col-5 text-muted">Provincia</dt>
+                    <dd class="col-7">{{ parcela.provincia_codigo or 33 }}</dd>
+                    <dt class="col-5 text-muted">Municipio</dt>
+                    <dd class="col-7">{{ parcela.municipio_codigo }}</dd>
+                    <dt class="col-5 text-muted">Polígono</dt>
+                    <dd class="col-7">{{ parcela.poligono }}</dd>
+                    <dt class="col-5 text-muted">Parcela</dt>
+                    <dd class="col-7">{{ parcela.parcela_sigpac }}</dd>
+                </dl>
+                <button id="btnSigpac" class="btn btn-sm btn-success w-100" onclick="cargarSigpac()">
+                    <i class="bi bi-layers me-1"></i>Cargar en mapa
+                </button>
+                {% else %}
+                <p class="text-muted small mb-2">Sin referencia SIGPAC. Edita la parcela para añadirla.</p>
+                <button class="btn btn-sm btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalEditar">
+                    <i class="bi bi-plus-circle me-1"></i>Añadir referencia
+                </button>
+                {% endif %}
+                <div id="sigpacInfo" class="mt-2 small"></div>
+            </div>
+        </div>
+
+        <!-- Historial de ocupaciones -->
+        {% if ocupaciones %}
+        <div class="card shadow-sm">
+            <div class="card-header py-2"><strong class="small">Historial de ocupación</strong></div>
+            <ul class="list-group list-group-flush small">
+                {% for oc in ocupaciones %}
+                <li class="list-group-item py-1">
+                    <strong>{{ oc.lote.nombre }}</strong>
+                    <span class="text-muted ms-1">{{ oc.fecha_entrada.strftime('%d/%m/%Y') }}
+                    {% if oc.fecha_salida %} → {{ oc.fecha_salida.strftime('%d/%m/%Y') }}
+                    {% else %} <span class="badge bg-success">actual</span>{% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Mapa -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header py-2 d-flex align-items-center gap-2">
+                <strong class="small"><i class="bi bi-map me-1"></i>Mapa</strong>
+                <div class="ms-auto btn-group btn-group-sm" id="capasControl">
+                    <button class="btn btn-outline-secondary active" onclick="cambiarCapa('osm', this)">Mapa</button>
+                    <button class="btn btn-outline-secondary" onclick="cambiarCapa('pnoa', this)">Satélite</button>
+                    <button class="btn btn-outline-secondary" onclick="cambiarCapa('sigpac', this)">SIGPAC</button>
+                </div>
+            </div>
+            <div id="mapa" style="height: 500px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal editar -->
+<div class="modal fade" id="modalEditar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar parcela</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/lotes/parcela/{{ parcela.id }}/editar">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-8">
+                            <label class="form-label small fw-semibold">Nombre *</label>
+                            <input type="text" name="nombre" class="form-control form-control-sm"
+                                   value="{{ parcela.nombre }}" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Hectáreas *</label>
+                            <input type="number" step="0.01" name="hectareas" class="form-control form-control-sm"
+                                   value="{{ parcela.hectareas }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Municipio (nombre)</label>
+                            <input type="text" name="municipio" class="form-control form-control-sm"
+                                   value="{{ parcela.municipio or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Ref. catastral</label>
+                            <input type="text" name="referencia_catastral" class="form-control form-control-sm"
+                                   value="{{ parcela.referencia_catastral or '' }}">
+                        </div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Referencia SIGPAC</small></div>
+                        <div class="col-3">
+                            <label class="form-label small">Provincia</label>
+                            <input type="number" name="provincia_codigo" class="form-control form-control-sm"
+                                   value="{{ parcela.provincia_codigo or 33 }}" placeholder="33">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label small">Municipio cód.</label>
+                            <input type="number" name="municipio_codigo" class="form-control form-control-sm"
+                                   value="{{ parcela.municipio_codigo or '' }}" placeholder="ej: 60">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label small">Polígono</label>
+                            <input type="number" name="poligono" class="form-control form-control-sm"
+                                   value="{{ parcela.poligono or '' }}">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label small">Parcela nº</label>
+                            <input type="number" name="parcela_sigpac" class="form-control form-control-sm"
+                                   value="{{ parcela.parcela_sigpac or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                El código de municipio lo puedes consultar en
+                                <a href="https://sigpac.mapama.gob.es/fega/visor/" target="_blank">SIGPAC visor</a>
+                                (Asturias = provincia 33).
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PARCELA_ID = {{ parcela.id }};
+const TIENE_SIGPAC = {{ 'true' if (parcela.poligono and parcela.parcela_sigpac and parcela.municipio_codigo) else 'false' }};
+
+const capas = {
+    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 20
+    }),
+    pnoa: L.tileLayer.wms('https://www.ign.es/wms-inspire/pnoa-ma', {
+        layers: 'OI.OrthoimageCoverage',
+        format: 'image/jpeg',
+        transparent: false,
+        attribution: '© IGN PNOA',
+        maxZoom: 20
+    }),
+    sigpac: L.tileLayer.wms('https://wms.mapama.gob.es/sig/Pac/wms.aspx', {
+        layers: 'recintos',
+        format: 'image/png',
+        transparent: true,
+        attribution: '© SIGPAC MAPA',
+        maxZoom: 20,
+        opacity: 0.8
+    })
+};
+
+const mapa = L.map('mapa').setView([43.36, -5.85], 13);
+capas.osm.addTo(mapa);
+
+let capaActual = 'osm';
+let sigpacLayer = null;
+
+function cambiarCapa(nombre, btn) {
+    mapa.removeLayer(capas[capaActual]);
+
+    if (nombre === 'sigpac') {
+        // SIGPAC WMS sobre PNOA
+        capas.pnoa.addTo(mapa);
+        capas.sigpac.addTo(mapa);
+        capaActual = 'sigpac';
+    } else {
+        if (capaActual === 'sigpac') mapa.removeLayer(capas.sigpac);
+        capas[nombre].addTo(mapa);
+        capaActual = nombre;
+    }
+
+    document.querySelectorAll('#capasControl .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+async function cargarSigpac() {
+    const btn = document.getElementById('btnSigpac');
+    const info = document.getElementById('sigpacInfo');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cargando...';
+    info.innerHTML = '';
+
+    try {
+        const resp = await fetch(`/lotes/parcela/${PARCELA_ID}/sigpac`);
+        const data = await resp.json();
+
+        if (data.error) {
+            info.innerHTML = `<div class="alert alert-warning py-1">${data.error}</div>`;
+            return;
+        }
+
+        if (sigpacLayer) mapa.removeLayer(sigpacLayer);
+
+        sigpacLayer = L.geoJSON(data, {
+            style: { color: '#198754', weight: 2, fillOpacity: 0.15 },
+            onEachFeature(feature, layer) {
+                const p = feature.properties || {};
+                const sup = p.dn_surface ? (p.dn_surface / 10000).toFixed(4) + ' ha' : '—';
+                const uso = p.uso_sigpac || '—';
+                layer.bindPopup(
+                    `<strong>Recinto ${p.dn_oid || ''}</strong><br>Uso: ${uso}<br>Superficie: ${sup}`
+                );
+            }
+        }).addTo(mapa);
+
+        mapa.fitBounds(sigpacLayer.getBounds(), { padding: [20, 20] });
+
+        const features = data.features || [];
+        const supTotal = features.reduce((acc, f) => {
+            return acc + (f.properties?.dn_surface || 0);
+        }, 0);
+        info.innerHTML = `<div class="alert alert-success py-1 mb-0">
+            ${features.length} recinto(s) — ${(supTotal / 10000).toFixed(4)} ha oficiales
+        </div>`;
+
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Cargado';
+    } catch (e) {
+        info.innerHTML = `<div class="alert alert-danger py-1">Error de conexión con SIGPAC</div>`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-layers me-1"></i>Cargar en mapa';
+    }
+}
+
+// Cargar automáticamente si hay referencia SIGPAC
+if (TIENE_SIGPAC) {
+    setTimeout(cargarSigpac, 800);
+}
+</script>
+{% endblock %}

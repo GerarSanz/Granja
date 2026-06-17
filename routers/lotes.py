@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import date
+import httpx
 from database import get_db
 from auth import get_current_user
 from models.lote import Lote, Parcela, OcupacionParcela, AsignacionToro
@@ -78,12 +79,93 @@ def crear_lote(
     return RedirectResponse(url="/lotes", status_code=302)
 
 
+@router.get("/parcela/{parcela_id}", response_class=HTMLResponse)
+def detalle_parcela(
+    parcela_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    parcela = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not parcela:
+        return RedirectResponse(url="/lotes")
+    ocupaciones = db.query(OcupacionParcela).filter(
+        OcupacionParcela.parcela_id == parcela_id
+    ).order_by(OcupacionParcela.fecha_entrada.desc()).all()
+    return templates.TemplateResponse("lotes/parcela.html", {
+        "request": request,
+        "parcela": parcela,
+        "ocupaciones": ocupaciones,
+        "current_user": current_user,
+    })
+
+
+@router.post("/parcela/{parcela_id}/editar")
+def editar_parcela(
+    parcela_id: int,
+    nombre: str = Form(...),
+    hectareas: float = Form(...),
+    municipio: str = Form(default=""),
+    referencia_catastral: str = Form(default=""),
+    provincia_codigo: str = Form(default="33"),
+    municipio_codigo: str = Form(default=""),
+    poligono: str = Form(default=""),
+    parcela_sigpac: str = Form(default=""),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    p = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not p:
+        return RedirectResponse(url="/lotes")
+    p.nombre = nombre
+    p.hectareas = hectareas
+    p.municipio = municipio or None
+    p.referencia_catastral = referencia_catastral or None
+    p.provincia_codigo = int(provincia_codigo) if provincia_codigo else 33
+    p.municipio_codigo = int(municipio_codigo) if municipio_codigo else None
+    p.poligono = int(poligono) if poligono else None
+    p.parcela_sigpac = int(parcela_sigpac) if parcela_sigpac else None
+    p.observaciones = observaciones or None
+    db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.get("/parcela/{parcela_id}/sigpac")
+async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
+    """Proxy hacia la API SIGPAC para obtener la geometría de la parcela."""
+    p = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not p or not all([p.provincia_codigo, p.municipio_codigo, p.poligono, p.parcela_sigpac]):
+        return JSONResponse({"error": "Referencia SIGPAC incompleta"}, status_code=400)
+
+    prov = str(p.provincia_codigo).zfill(2)
+    mun = str(p.municipio_codigo).zfill(3)
+    pol = str(p.poligono).zfill(3)
+    par = str(p.parcela_sigpac).zfill(5)
+
+    url = (
+        f"https://sigpac.mapama.gob.es/fega/ServiciosVisorSigpac/"
+        f"query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return JSONResponse(resp.json())
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
 @router.post("/parcela/nueva")
 def crear_parcela(
     nombre: str = Form(...),
     hectareas: float = Form(...),
     referencia_catastral: str = Form(default=""),
     municipio: str = Form(default=""),
+    provincia_codigo: str = Form(default="33"),
+    municipio_codigo: str = Form(default=""),
+    poligono: str = Form(default=""),
+    parcela_sigpac: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -92,6 +174,10 @@ def crear_parcela(
         hectareas=hectareas,
         referencia_catastral=referencia_catastral or None,
         municipio=municipio or None,
+        provincia_codigo=int(provincia_codigo) if provincia_codigo else 33,
+        municipio_codigo=int(municipio_codigo) if municipio_codigo else None,
+        poligono=int(poligono) if poligono else None,
+        parcela_sigpac=int(parcela_sigpac) if parcela_sigpac else None,
     )
     db.add(p)
     db.commit()

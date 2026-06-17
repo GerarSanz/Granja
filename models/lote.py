@@ -26,6 +26,12 @@ class Parcela(Base):
     municipio = Column(String(100), nullable=True)
     observaciones = Column(Text, nullable=True)
 
+    # Referencia SIGPAC
+    provincia_codigo = Column(Integer, nullable=True, default=33)  # 33 = Asturias
+    municipio_codigo = Column(Integer, nullable=True)
+    poligono = Column(Integer, nullable=True)
+    parcela_sigpac = Column(Integer, nullable=True)
+
     ocupaciones = relationship("OcupacionParcela", back_populates="parcela")
 
 
