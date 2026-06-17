@@ -153,26 +153,32 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     pol = str(p.poligono)
     par = str(p.parcela_sigpac)
 
-    hostname = "sigpac.mapa.gob.es"
-    path = f"/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
+    # Catastro INSPIRE WFS — accesible globalmente, proporciona geometría de parcelas rústicas
+    # Referencia catastral rústica: PP(2) + MMM(3) + 000(3) + POL(3) + PAR(5) = 16 chars
+    ref_catastral = (
+        f"{prov.zfill(2)}{mun.zfill(3)}000{pol.zfill(3)}{par.zfill(5)}"
+    )
+    url = (
+        "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx"
+        "?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature"
+        "&TYPENAMES=cp:CadastralParcel&OUTPUTFORMAT=json&SRSNAME=EPSG:4258"
+        f"&CQL_FILTER=nationalCadastralReference='{ref_catastral}'"
+    )
     try:
-        ip = await asyncio.to_thread(_resolver_ip_google, hostname)
-        import ssl as _ssl
-        ssl_ctx = _ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = _ssl.CERT_NONE
-        async with httpx.AsyncClient(verify=ssl_ctx, timeout=15) as client:
-            resp = await client.get(
-                f"https://{ip}{path}",
-                headers={"Host": hostname, "User-Agent": "GranjaManager/1.0"},
-                extensions={"sni_hostname": hostname.encode()},
-            )
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "GranjaManager/1.0"})
             if not resp.is_success:
                 return JSONResponse(
-                    {"error": f"SIGPAC {resp.status_code}: {resp.text[:300]}"},
+                    {"error": f"Catastro {resp.status_code}", "ref": ref_catastral},
                     status_code=502,
                 )
-            return JSONResponse(resp.json())
+            data = resp.json()
+            if not data.get("features"):
+                return JSONResponse(
+                    {"error": f"Parcela no encontrada en Catastro (ref: {ref_catastral})"},
+                    status_code=404,
+                )
+            return JSONResponse(data)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
 
