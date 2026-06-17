@@ -156,14 +156,22 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     hostname = "sigpac.mapa.gob.es"
     path = f"/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
     try:
-        # DNS con Google para saltarse el bloqueo del servidor Fly.io en París
         ip = await asyncio.to_thread(_resolver_ip_google, hostname)
-        async with httpx.AsyncClient(
-            verify=False, timeout=15,
-            headers={"Host": hostname, "User-Agent": "GranjaManager/1.0"},
-        ) as client:
-            resp = await client.get(f"https://{ip}{path}")
-            resp.raise_for_status()
+        import ssl as _ssl
+        ssl_ctx = _ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = _ssl.CERT_NONE
+        async with httpx.AsyncClient(verify=ssl_ctx, timeout=15) as client:
+            resp = await client.get(
+                f"https://{ip}{path}",
+                headers={"Host": hostname, "User-Agent": "GranjaManager/1.0"},
+                extensions={"sni_hostname": hostname.encode()},
+            )
+            if not resp.is_success:
+                return JSONResponse(
+                    {"error": f"SIGPAC {resp.status_code}: {resp.text[:300]}"},
+                    status_code=502,
+                )
             return JSONResponse(resp.json())
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
