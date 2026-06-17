@@ -3,8 +3,18 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import date
+import asyncio
 import httpx
 from database import get_db
+
+
+def _resolver_ip_google(hostname: str) -> str:
+    """Resuelve hostname usando DNS de Google, saltando el DNS de Fly.io."""
+    import dns.resolver as dns_r
+    r = dns_r.Resolver(configure=False)
+    r.nameservers = ["8.8.8.8", "1.1.1.1"]
+    r.lifetime = 5.0
+    return str(r.resolve(hostname, "A")[0])
 from auth import get_current_user
 from models.lote import Lote, Parcela, OcupacionParcela, AsignacionToro
 from models.animal import Animal
@@ -143,23 +153,18 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     pol = str(p.poligono).zfill(3)
     par = str(p.parcela_sigpac).zfill(5)
 
-    # Probamos los dos hostnames conocidos (MAPAMA→MAPA en 2018)
-    urls = [
-        f"https://sigpac.mapa.gob.es/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson",
-        f"https://sigpac.mapama.gob.es/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson",
-    ]
-    last_error = "Sin respuesta"
+    hostname = "sigpac.mapa.gob.es"
+    path = f"/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            for url in urls:
-                try:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-                    return JSONResponse(resp.json())
-                except Exception as e:
-                    last_error = str(e)
-                    continue
-        return JSONResponse({"error": f"SIGPAC no disponible: {last_error}"}, status_code=502)
+        # DNS con Google para saltarse el bloqueo del servidor Fly.io en París
+        ip = await asyncio.to_thread(_resolver_ip_google, hostname)
+        async with httpx.AsyncClient(
+            verify=False, timeout=15,
+            headers={"Host": hostname, "User-Agent": "GranjaManager/1.0"},
+        ) as client:
+            resp = await client.get(f"https://{ip}{path}")
+            resp.raise_for_status()
+            return JSONResponse(resp.json())
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
 
