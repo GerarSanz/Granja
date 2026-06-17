@@ -143,15 +143,23 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     pol = str(p.poligono).zfill(3)
     par = str(p.parcela_sigpac).zfill(5)
 
-    url = (
-        f"https://sigpac.mapama.gob.es/fega/ServiciosVisorSigpac/"
-        f"query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
-    )
+    # Probamos los dos hostnames conocidos (MAPAMA→MAPA en 2018)
+    urls = [
+        f"https://sigpac.mapa.gob.es/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson",
+        f"https://sigpac.mapama.gob.es/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson",
+    ]
+    last_error = "Sin respuesta"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            return JSONResponse(resp.json())
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            for url in urls:
+                try:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+                    return JSONResponse(resp.json())
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+        return JSONResponse({"error": f"SIGPAC no disponible: {last_error}"}, status_code=502)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
 
