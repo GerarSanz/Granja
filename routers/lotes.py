@@ -148,10 +148,10 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     if not p or not all([p.provincia_codigo, p.municipio_codigo, p.poligono, p.parcela_sigpac]):
         return JSONResponse({"error": "Referencia SIGPAC incompleta"}, status_code=400)
 
-    prov = str(p.provincia_codigo).zfill(2)
-    mun = str(p.municipio_codigo).zfill(3)
-    pol = str(p.poligono).zfill(3)
-    par = str(p.parcela_sigpac).zfill(5)
+    prov = str(p.provincia_codigo)
+    mun = str(p.municipio_codigo)
+    pol = str(p.poligono)
+    par = str(p.parcela_sigpac)
 
     hostname = "sigpac.mapa.gob.es"
     path = f"/fega/ServiciosVisorSigpac/query/recintos/{prov}/{mun}/0/0/{pol}/{par}.geojson"
