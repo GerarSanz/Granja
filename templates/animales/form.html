@@ -34,6 +34,26 @@
                            value="{{ animal.nombre or '' if animal else '' }}">
                 </div>
 
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Raza</label>
+                    <input type="text" name="raza" class="form-control"
+                           list="razas_bovinas"
+                           placeholder="Asturiana de la Montaña"
+                           value="{{ animal.raza or 'Asturiana de la Montaña' if animal else 'Asturiana de la Montaña' }}">
+                    <datalist id="razas_bovinas">
+                        <option value="Asturiana de la Montaña">
+                        <option value="Asturiana de los Valles">
+                        <option value="Frisona">
+                        <option value="Parda Alpina">
+                        <option value="Limusina">
+                        <option value="Charolesa">
+                        <option value="Rubia Gallega">
+                        <option value="Pirenaica">
+                        <option value="Retinta">
+                        <option value="Cruzado">
+                    </datalist>
+                </div>
+
                 <div class="col-6 col-md-2">
                     <label class="form-label fw-semibold">Sexo <span class="text-danger">*</span></label>
                     <select name="sexo" class="form-select" required>

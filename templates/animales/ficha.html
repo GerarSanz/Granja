@@ -33,6 +33,9 @@
                     <dt class="col-5 text-muted">Nombre</dt>
                     <dd class="col-7">{{ animal.nombre or '—' }}</dd>
 
+                    <dt class="col-5 text-muted">Raza</dt>
+                    <dd class="col-7">{{ animal.raza or '—' }}</dd>
+
                     <dt class="col-5 text-muted">Sexo</dt>
                     <dd class="col-7">
                         <i class="bi {% if animal.sexo == 'hembra' %}bi-gender-female text-danger{% else %}bi-gender-male text-primary{% endif %} me-1"></i>
@@ -275,6 +278,23 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Nombre</label>
                         <input type="text" name="nombre" class="form-control" value="{{ animal.nombre or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Raza</label>
+                        <input type="text" name="raza" class="form-control" list="razas_bovinas_ficha"
+                               value="{{ animal.raza or '' }}">
+                        <datalist id="razas_bovinas_ficha">
+                            <option value="Asturiana de la Montaña">
+                            <option value="Asturiana de los Valles">
+                            <option value="Frisona">
+                            <option value="Parda Alpina">
+                            <option value="Limusina">
+                            <option value="Charolesa">
+                            <option value="Rubia Gallega">
+                            <option value="Pirenaica">
+                            <option value="Retinta">
+                            <option value="Cruzado">
+                        </datalist>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Estado</label>

@@ -76,6 +76,7 @@ def crear_animal(
     crotal: str = Form(...),
     nombre: str = Form(default=""),
     sexo: str = Form(...),
+    raza: str = Form(default="Asturiana de la Montaña"),
     fecha_nacimiento: str = Form(default=""),
     madre_crotal: str = Form(default=""),
     padre_crotal: str = Form(default=""),
@@ -99,6 +100,7 @@ def crear_animal(
         crotal=crotal.strip().upper(),
         nombre=nombre.strip() or None,
         sexo=sexo,
+        raza=raza.strip() or "Asturiana de la Montaña",
         fecha_nacimiento=date.fromisoformat(fecha_nacimiento) if fecha_nacimiento else None,
         madre_crotal=madre_crotal.strip().upper() or None,
         padre_crotal=padre_crotal.strip().upper() or None,
@@ -275,6 +277,7 @@ def ficha_animal(
 def editar_animal(
     crotal: str,
     nombre: str = Form(default=""),
+    raza: str = Form(default=""),
     estado: str = Form(...),
     lote_id: str = Form(default=""),
     observaciones: str = Form(default=""),
@@ -285,6 +288,7 @@ def editar_animal(
     if not animal:
         raise HTTPException(status_code=404)
     animal.nombre = nombre.strip() or animal.nombre
+    animal.raza = raza.strip() or animal.raza
     animal.estado = estado
     animal.lote_id = int(lote_id) if lote_id else None
     animal.observaciones = observaciones.strip() or None
