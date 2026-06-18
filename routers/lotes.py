@@ -153,34 +153,48 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     pol = str(p.poligono)
     par = str(p.parcela_sigpac)
 
-    # Catastro INSPIRE WFS — accesible globalmente, proporciona geometría de parcelas rústicas
-    # Referencia catastral rústica: PP(2) + MMM(3) + 000(3) + POL(3) + PAR(5) = 16 chars
-    ref_catastral = (
-        f"{prov.zfill(2)}{mun.zfill(3)}000{pol.zfill(3)}{par.zfill(5)}"
-    )
-    url = (
-        "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx"
-        "?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature"
-        "&TYPENAMES=cp:CadastralParcel&OUTPUTFORMAT=json&SRSNAME=EPSG:4258"
-        f"&CQL_FILTER=nationalCadastralReference='{ref_catastral}'"
-    )
+    # Catastro INSPIRE WFS
+    # Referencia catastral rústica: PP(2) + MMM(3) + A + POL(3) + PAR(5) = 14 chars
+    # Ej: 33035A01712293  (Asturias, Llanera, rústica, pol 17, parcela 12293)
+    ref14 = f"{prov.zfill(2)}{mun.zfill(3)}A{pol.zfill(3)}{par.zfill(5)}"
+    # Usar params dict para que httpx codifique correctamente el % del LIKE como %25
+    params = {
+        "SERVICE": "WFS",
+        "VERSION": "2.0.0",
+        "REQUEST": "GetFeature",
+        "TYPENAMES": "cp:CadastralParcel",
+        "OUTPUTFORMAT": "json",
+        "SRSNAME": "EPSG:4258",
+        "CQL_FILTER": f"nationalCadastralReference LIKE '{ref14}%'",
+    }
     try:
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            resp = await client.get(url, headers={"User-Agent": "GranjaManager/1.0"})
+            resp = await client.get(
+                "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx",
+                params=params,
+                headers={"User-Agent": "GranjaManager/1.0", "Accept": "application/json"},
+            )
             if not resp.is_success:
                 return JSONResponse(
-                    {"error": f"Catastro {resp.status_code}", "ref": ref_catastral},
+                    {"error": f"Catastro {resp.status_code}: {resp.text[:300]}", "ref": ref14},
+                    status_code=502,
+                )
+            content_type = resp.headers.get("content-type", "")
+            if "json" not in content_type:
+                # El servidor respondió con XML u otro formato — devolver fragmento para depuración
+                return JSONResponse(
+                    {"error": f"Catastro devolvió formato inesperado ({content_type}): {resp.text[:300]}", "ref": ref14},
                     status_code=502,
                 )
             data = resp.json()
             if not data.get("features"):
                 return JSONResponse(
-                    {"error": f"Parcela no encontrada en Catastro (ref: {ref_catastral})"},
+                    {"error": f"Parcela no encontrada (ref: {ref14}). Verifica polígono y parcela."},
                     status_code=404,
                 )
             return JSONResponse(data)
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=502)
+        return JSONResponse({"error": str(e), "ref": ref14}, status_code=502)
 
 
 @router.post("/parcela/nueva")
