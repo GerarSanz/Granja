@@ -42,6 +42,9 @@
                     <dt class="col-5 text-muted">Parcela</dt>
                     <dd class="col-7">{{ parcela.parcela_sigpac }}</dd>
                 </dl>
+                <button id="btnSigpac" class="btn btn-sm btn-success w-100 mb-2" onclick="cargarSigpac()">
+                    <i class="bi bi-layers me-1"></i>Cargar en mapa
+                </button>
                 <a href="https://sigpac.mapa.gob.es/fega/visor/?provincia={{ parcela.provincia_codigo or 33 }}&municipio={{ parcela.municipio_codigo }}&agregado=0&zona=0&poligono={{ parcela.poligono }}&parcela={{ parcela.parcela_sigpac }}"
                    target="_blank" class="btn btn-sm btn-outline-secondary w-100">
                     <i class="bi bi-box-arrow-up-right me-1"></i>Abrir en visor SIGPAC
@@ -669,6 +672,7 @@
 <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.16.0/dist/leaflet-geoman.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.16.0/dist/leaflet-geoman.min.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script>
 const PARCELA_ID = {{ parcela.id }};
 const TIENE_SIGPAC = {{ 'true' if (parcela.poligono and parcela.parcela_sigpac and parcela.municipio_codigo) else 'false' }};
@@ -749,29 +753,30 @@ async function cargarSigpac() {
 
     if (sigpacLayer) mapa.removeLayer(sigpacLayer);
 
-    sigpacLayer = L.geoJSON(data, {
-        style: { color: '#198754', weight: 2.5, fillColor: '#198754', fillOpacity: 0.15 },
-        onEachFeature(feature, layer) {
-            const p = feature.properties || {};
-            const pend = (p.pendiente_media != null) ? p.pendiente_media + ' %' : '—';
-            const alt = (p.altitud != null) ? p.altitud + ' m' : '—';
-            layer.bindPopup(
-                `<strong>Recinto ${p.recinto ?? ''}</strong>` +
-                `<br>Pendiente media: ${pend}` +
-                `<br>Altitud: ${alt}`
-            );
-        }
+    // Fusionar todos los recintos en un único perímetro exterior
+    const features = data.features || [];
+    let contorno = features[0];
+    for (let i = 1; i < features.length; i++) {
+        try { contorno = turf.union(contorno, features[i]); } catch(e) {}
+    }
+
+    sigpacLayer = L.geoJSON(contorno, {
+        style: { color: '#198754', weight: 2.5, fillColor: '#198754', fillOpacity: 0.12 }
     }).addTo(mapa);
 
     mapa.fitBounds(sigpacLayer.getBounds(), { padding: [20, 20] });
 
-    const features = data.features || [];
     info.innerHTML = `<div class="alert alert-success py-1 mb-0">
-        <i class="bi bi-check-circle me-1"></i>${features.length} recinto(s) cargado(s)
+        <i class="bi bi-check-circle me-1"></i>Parcela cargada
     </div>`;
     btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Cargado';
 }
 
+
+// Cargar contorno de la parcela automáticamente
+if (TIENE_SIGPAC) {
+    setTimeout(cargarSigpac, 800);
+}
 
 // ── Subparcelas / Pastoreo rotacional ──────────────────────────────────────
 const subparcelasLayer = L.layerGroup().addTo(mapa);
