@@ -45,7 +45,7 @@
                 <button id="btnSigpac" class="btn btn-sm btn-success w-100 mb-2" onclick="cargarSigpac()">
                     <i class="bi bi-layers me-1"></i>Cargar en mapa
                 </button>
-                <a href="https://sigpac.mapa.gob.es/fega/visor/#provincia={{ parcela.provincia_codigo or 33 }}&municipio={{ parcela.municipio_codigo }}&poligono={{ parcela.poligono }}&parcela={{ parcela.parcela_sigpac }}"
+                <a href="https://sigpac.mapa.gob.es/fega/visor/?provincia={{ parcela.provincia_codigo or 33 }}&municipio={{ parcela.municipio_codigo }}&agregado=0&zona=0&poligono={{ parcela.poligono }}&parcela={{ parcela.parcela_sigpac }}"
                    target="_blank" class="btn btn-sm btn-outline-secondary w-100">
                     <i class="bi bi-box-arrow-up-right me-1"></i>Abrir en visor SIGPAC
                 </a>
