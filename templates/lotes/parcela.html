@@ -81,18 +81,144 @@
     <!-- Mapa -->
     <div class="col-lg-8">
         <div class="card shadow-sm">
-            <div class="card-header py-2 d-flex align-items-center gap-2">
+            <div class="card-header py-2 d-flex align-items-center gap-2 flex-wrap">
                 <strong class="small"><i class="bi bi-map me-1"></i>Mapa</strong>
-                <div class="ms-auto btn-group btn-group-sm" id="capasControl">
+                <div class="btn-group btn-group-sm" id="capasControl">
                     <button class="btn btn-outline-secondary active" onclick="cambiarCapa('osm', this)">Mapa</button>
                     <button class="btn btn-outline-secondary" onclick="cambiarCapa('pnoa', this)">Satélite</button>
                     <button class="btn btn-outline-secondary" onclick="cambiarCapa('sigpac', this)">SIGPAC</button>
                 </div>
+                <button id="btnDibujar" class="btn btn-sm btn-outline-success ms-auto" onclick="activarDibujo()">
+                    <i class="bi bi-pencil-square me-1"></i>Dibujar subparcela
+                </button>
             </div>
             <div id="mapa" style="height: 500px;"></div>
         </div>
     </div>
 </div>
+
+<!-- Pastoreo rotacional — subparcelas -->
+<div class="card shadow-sm mt-3">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-grid-3x3-gap me-2 text-success"></i>Pastoreo rotacional
+        <small class="text-muted fw-normal ms-2">Dibuja subparcelas en el mapa para gestionar la rotación</small>
+    </div>
+    <div class="card-body p-0">
+        {% if subparcelas %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 small align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Subparcela</th>
+                        <th>Uso</th>
+                        <th>Lote actual</th>
+                        <th>Desde</th>
+                        <th>Días</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sp in subparcelas %}
+                    {% set oc = sp.ocupacion_actual %}
+                    <tr>
+                        <td>
+                            <span class="d-inline-block rounded-circle me-1"
+                                  style="width:10px;height:10px;background:{{ sp.color }};"></span>
+                            <strong>{{ sp.nombre }}</strong>
+                        </td>
+                        <td class="text-muted">{{ sp.uso or '—' }}</td>
+                        <td>
+                            {% if oc %}
+                            <span class="badge bg-success bg-opacity-75">{{ oc.lote.nombre }}</span>
+                            {% else %}
+                            <span class="text-muted">Libre</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">
+                            {{ oc.fecha_entrada.strftime('%d/%m/%Y') if oc else '—' }}
+                        </td>
+                        <td>
+                            {% if oc %}
+                            <span class="badge bg-secondary">{{ (hoy - oc.fecha_entrada).days }}d</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-xs btn-outline-success" title="Asignar lote"
+                                        onclick="abrirAsignar({{ sp.id }}, '{{ sp.nombre }}')">
+                                    <i class="bi bi-arrow-right-circle"></i>
+                                </button>
+                                {% if oc %}
+                                <form method="post" action="/lotes/parcela/{{ parcela.id }}/subparcela/{{ sp.id }}/ocupacion/cerrar">
+                                    <input type="hidden" name="fecha_salida" value="{{ hoy.isoformat() }}">
+                                    <button type="submit" class="btn btn-xs btn-outline-warning" title="Retirar lote">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <button class="btn btn-xs btn-outline-info" title="Ver historial"
+                                        onclick="abrirHistorial({{ sp.id }}, '{{ sp.nombre }}')">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                                <form method="post" action="/lotes/parcela/{{ parcela.id }}/subparcela/{{ sp.id }}/eliminar"
+                                      onsubmit="return confirm('¿Eliminar subparcela {{ sp.nombre }} y todo su historial?')">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            <i class="bi bi-pencil-square fs-3 d-block mb-2 opacity-25"></i>
+            Dibuja subparcelas en el mapa con el botón <strong>Dibujar subparcela</strong>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Historial completo de rotaciones -->
+{% set todas_ocupaciones = [] %}
+{% for sp in subparcelas %}{% for oc in sp.ocupaciones %}{% set _ = todas_ocupaciones.append((sp, oc)) %}{% endfor %}{% endfor %}
+{% if todas_ocupaciones %}
+<div class="card shadow-sm mt-3" id="historialRotaciones">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-clock-history me-2 text-secondary"></i>Historial de rotaciones
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 small align-middle">
+                <thead class="table-light">
+                    <tr><th>Subparcela</th><th>Lote</th><th>Entrada</th><th>Salida</th><th>Días</th></tr>
+                </thead>
+                <tbody>
+                    {% for sp, oc in todas_ocupaciones | sort(attribute='1.fecha_entrada', reverse=True) %}
+                    <tr>
+                        <td>
+                            <span class="d-inline-block rounded-circle me-1"
+                                  style="width:8px;height:8px;background:{{ sp.color }};"></span>
+                            {{ sp.nombre }}
+                        </td>
+                        <td>{{ oc.lote.nombre }}</td>
+                        <td>{{ oc.fecha_entrada.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ oc.fecha_salida.strftime('%d/%m/%Y') if oc.fecha_salida else '<span class="badge bg-success">actual</span>' }}</td>
+                        <td>
+                            {% set dias = (oc.fecha_salida or hoy) - oc.fecha_entrada %}
+                            {{ dias.days }}d
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Abonados y Tratamientos de parcela -->
 <div class="row g-3 mt-0">
@@ -368,6 +494,109 @@
     </div>
 </div>
 
+<!-- Modal: Nombrar nueva subparcela (después de dibujar en mapa) -->
+<div class="modal fade" id="modalNombreSubparcela" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-bounding-box me-1 text-success"></i>Nueva subparcela</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formNombreSubparcela">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" class="form-control form-control-sm"
+                                   placeholder="Ej: Sector A, Prado norte…" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Uso</label>
+                            <select name="uso" class="form-select form-select-sm">
+                                <option value="">— Sin especificar —</option>
+                                <option value="pastizal">Pastizal</option>
+                                <option value="prado">Prado</option>
+                                <option value="cultivo">Cultivo forrajero</option>
+                                <option value="monte">Monte/Bosque</option>
+                                <option value="descanso">Descanso</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Color en mapa</label>
+                            <div class="d-flex gap-2 flex-wrap" id="colorPicker">
+                                {% for color in [('#198754','Verde'),('#0d6efd','Azul'),('#ffc107','Amarillo'),('#dc3545','Rojo'),('#6f42c1','Morado'),('#fd7e14','Naranja')] %}
+                                <label class="d-flex align-items-center gap-1 small" style="cursor:pointer">
+                                    <input type="radio" name="color" value="{{ color[0] }}" class="visually-hidden"
+                                           {% if loop.first %}checked{% endif %}>
+                                    <span class="d-inline-block rounded border border-2"
+                                          style="width:22px;height:22px;background:{{ color[0] }};"></span>
+                                    {{ color[1] }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal"
+                            onclick="cancelarDibujo()">Cancelar</button>
+                    <button type="button" class="btn btn-success btn-sm" onclick="guardarSubparcela()">
+                        <i class="bi bi-check2 me-1"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Asignar lote a subparcela -->
+<div class="modal fade" id="modalAsignarLote" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">
+                    <i class="bi bi-arrow-right-circle me-1 text-success"></i>
+                    Asignar lote — <span id="tituloAsignar" class="fw-bold text-success"></span>
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formAsignarLote" method="post" action="">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Lote <span class="text-danger">*</span></label>
+                            <select name="lote_id" class="form-select form-select-sm" required>
+                                {% for l in lotes %}
+                                <option value="{{ l.id }}">{{ l.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Fecha entrada <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_entrada" class="form-control form-control-sm"
+                                   value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check2 me-1"></i>Asignar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal editar -->
 <div class="modal fade" id="modalEditar" tabindex="-1">
     <div class="modal-dialog">
@@ -440,7 +669,9 @@
 </div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.16.0/dist/leaflet-geoman.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.16.0/dist/leaflet-geoman.min.js"></script>
 <script>
 const PARCELA_ID = {{ parcela.id }};
 const TIENE_SIGPAC = {{ 'true' if (parcela.poligono and parcela.parcela_sigpac and parcela.municipio_codigo) else 'false' }};
@@ -548,5 +779,114 @@ async function cargarSigpac() {
 if (TIENE_SIGPAC) {
     setTimeout(cargarSigpac, 800);
 }
+
+// ── Subparcelas / Pastoreo rotacional ──────────────────────────────────────
+const subparcelasLayer = L.layerGroup().addTo(mapa);
+let geometriaPendiente = null;
+
+async function cargarSubparcelas() {
+    const resp = await fetch(`/lotes/parcela/${PARCELA_ID}/subparcelas.geojson`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    subparcelasLayer.clearLayers();
+    (data.features || []).forEach(f => {
+        const p = f.properties || {};
+        const color = p.color || '#198754';
+        const layer = L.geoJSON(f, {
+            style: { color, weight: 2.5, fillColor: color, fillOpacity: 0.25 }
+        });
+        const loteInfo = p.lote_actual
+            ? `<span class="badge bg-success">${p.lote_actual}</span> desde ${p.desde || '?'}`
+            : '<span class="text-muted">Libre</span>';
+        layer.bindPopup(`
+            <strong>${p.nombre}</strong>
+            ${p.uso ? `<br><small class="text-muted">${p.uso}</small>` : ''}
+            <br>${loteInfo}
+            <div class="d-flex gap-1 mt-2">
+                <button class="btn btn-sm btn-success py-0 px-2"
+                        onclick="abrirAsignar(${p.id},'${p.nombre.replace(/'/g,"\\'")}');this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click()">
+                    Asignar lote
+                </button>
+            </div>
+        `);
+        layer.bindTooltip(p.nombre, { permanent: true, direction: 'center',
+            className: 'sp-label' });
+        subparcelasLayer.addLayer(layer);
+    });
+}
+
+function activarDibujo() {
+    const btn = document.getElementById('btnDibujar');
+    if (mapa.pm.globalDrawModeEnabled()) {
+        mapa.pm.disableDraw();
+        btn.classList.replace('btn-success', 'btn-outline-success');
+        btn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Dibujar subparcela';
+        return;
+    }
+    mapa.pm.enableDraw('Polygon', { snappable: true, snapDistance: 20 });
+    btn.classList.replace('btn-outline-success', 'btn-success');
+    btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>Cancelar dibujo';
+}
+
+function cancelarDibujo() {
+    geometriaPendiente = null;
+}
+
+mapa.on('pm:create', (e) => {
+    geometriaPendiente = e.layer.toGeoJSON().geometry;
+    mapa.removeLayer(e.layer);
+    const btn = document.getElementById('btnDibujar');
+    btn.classList.replace('btn-success', 'btn-outline-success');
+    btn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Dibujar subparcela';
+    new bootstrap.Modal(document.getElementById('modalNombreSubparcela')).show();
+});
+
+async function guardarSubparcela() {
+    if (!geometriaPendiente) return;
+    const form = document.getElementById('formNombreSubparcela');
+    const nombre = form.querySelector('[name=nombre]').value.trim();
+    if (!nombre) { form.querySelector('[name=nombre]').focus(); return; }
+    const colorRadio = form.querySelector('[name=color]:checked');
+    const payload = {
+        nombre,
+        uso: form.querySelector('[name=uso]').value,
+        color: colorRadio ? colorRadio.value : '#198754',
+        observaciones: form.querySelector('[name=observaciones]').value,
+        geometry: geometriaPendiente
+    };
+    const resp = await fetch(`/lotes/parcela/${PARCELA_ID}/subparcela/nueva`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (resp.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('modalNombreSubparcela')).hide();
+        form.reset();
+        geometriaPendiente = null;
+        location.reload();
+    } else {
+        const err = await resp.json().catch(() => ({}));
+        alert('Error al guardar: ' + (err.detail || resp.status));
+    }
+}
+
+function abrirAsignar(spId, nombre) {
+    document.getElementById('tituloAsignar').textContent = nombre;
+    document.getElementById('formAsignarLote').action =
+        `/lotes/parcela/${PARCELA_ID}/subparcela/${spId}/ocupacion/nueva`;
+    new bootstrap.Modal(document.getElementById('modalAsignarLote')).show();
+}
+
+function abrirHistorial(spId, nombre) {
+    const el = document.getElementById('historialRotaciones');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Estilo tooltips de subparcelas
+const style = document.createElement('style');
+style.textContent = '.sp-label{background:transparent;border:none;box-shadow:none;color:#fff;font-size:11px;font-weight:600;text-shadow:0 0 3px #000,0 0 3px #000;}';
+document.head.appendChild(style);
+
+cargarSubparcelas();
 </script>
 {% endblock %}

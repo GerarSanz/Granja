@@ -35,6 +35,44 @@ class Parcela(Base):
     ocupaciones = relationship("OcupacionParcela", back_populates="parcela")
     abonados = relationship("AbonoParcela", back_populates="parcela", cascade="all, delete-orphan")
     tratamientos = relationship("TratamientoParcela", back_populates="parcela", cascade="all, delete-orphan")
+    subparcelas = relationship("SubParcela", back_populates="parcela", cascade="all, delete-orphan")
+
+
+class SubParcela(Base):
+    __tablename__ = "subparcelas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    parcela_id = Column(Integer, ForeignKey("parcelas.id"), nullable=False)
+    nombre = Column(String(100), nullable=False)
+    uso = Column(String(50), nullable=True)   # pastizal, cultivo, bosque, descanso…
+    color = Column(String(10), default="#198754")
+    geojson = Column(Text, nullable=False)    # GeoJSON geometry del polígono
+    observaciones = Column(Text, nullable=True)
+
+    parcela = relationship("Parcela", back_populates="subparcelas")
+    ocupaciones = relationship("OcupacionSubParcela", back_populates="subparcela",
+                               cascade="all, delete-orphan")
+
+    @property
+    def ocupacion_actual(self):
+        for oc in self.ocupaciones:
+            if oc.fecha_salida is None:
+                return oc
+        return None
+
+
+class OcupacionSubParcela(Base):
+    __tablename__ = "ocupaciones_subparcela"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subparcela_id = Column(Integer, ForeignKey("subparcelas.id"), nullable=False)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False)
+    fecha_entrada = Column(Date, nullable=False)
+    fecha_salida = Column(Date, nullable=True)
+    observaciones = Column(Text, nullable=True)
+
+    subparcela = relationship("SubParcela", back_populates="ocupaciones")
+    lote = relationship("Lote")
 
 
 class AbonoParcela(Base):

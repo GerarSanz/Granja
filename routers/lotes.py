@@ -16,7 +16,9 @@ def _resolver_ip_google(hostname: str) -> str:
     r.lifetime = 5.0
     return str(r.resolve(hostname, "A")[0])
 from auth import get_current_user
-from models.lote import Lote, Parcela, OcupacionParcela, AsignacionToro, AbonoParcela, TratamientoParcela
+from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
+                         AbonoParcela, TratamientoParcela,
+                         SubParcela, OcupacionSubParcela)
 from models.animal import Animal
 from models.usuario import Usuario
 
@@ -108,12 +110,18 @@ def detalle_parcela(
     tratamientos_parcela = db.query(TratamientoParcela).filter(
         TratamientoParcela.parcela_id == parcela_id
     ).order_by(TratamientoParcela.fecha.desc()).all()
+    subparcelas = db.query(SubParcela).filter(
+        SubParcela.parcela_id == parcela_id
+    ).order_by(SubParcela.nombre).all()
+    lotes = db.query(Lote).order_by(Lote.nombre).all()
     return templates.TemplateResponse("lotes/parcela.html", {
         "request": request,
         "parcela": parcela,
         "ocupaciones": ocupaciones,
         "abonados": abonados,
         "tratamientos_parcela": tratamientos_parcela,
+        "subparcelas": subparcelas,
+        "lotes": lotes,
         "hoy": date.today(),
         "timedelta": timedelta,
         "current_user": current_user,
@@ -195,7 +203,7 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
                 )
             return JSONResponse(data)
     except Exception as e:
-        return JSONResponse({"error": str(e), "ref": ref14}, status_code=502)
+        return JSONResponse({"error": str(e)}, status_code=502)
 
 
 @router.post("/parcela/nueva")
@@ -380,5 +388,115 @@ def eliminar_tratamiento_parcela(
     t = db.query(TratamientoParcela).filter(TratamientoParcela.id == trat_id).first()
     if t:
         db.delete(t)
+        db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+# ── SubParcelas (pastoreo rotacional) ─────────────────────────────────────────
+
+@router.get("/parcela/{parcela_id}/subparcelas.geojson")
+def subparcelas_geojson(parcela_id: int, db: Session = Depends(get_db)):
+    """GeoJSON FeatureCollection con todas las subparcelas y su ocupación actual."""
+    import json
+    subparcelas = db.query(SubParcela).filter(SubParcela.parcela_id == parcela_id).all()
+    features = []
+    for sp in subparcelas:
+        oc = sp.ocupacion_actual
+        features.append({
+            "type": "Feature",
+            "id": sp.id,
+            "geometry": json.loads(sp.geojson),
+            "properties": {
+                "id": sp.id,
+                "nombre": sp.nombre,
+                "uso": sp.uso or "",
+                "color": sp.color,
+                "lote_id": oc.lote_id if oc else None,
+                "lote_actual": oc.lote.nombre if oc else None,
+                "desde": oc.fecha_entrada.strftime("%d/%m/%Y") if oc else None,
+                "ocupacion_id": oc.id if oc else None,
+            }
+        })
+    return JSONResponse({"type": "FeatureCollection", "features": features})
+
+
+@router.post("/parcela/{parcela_id}/subparcela/nueva")
+async def nueva_subparcela(
+    parcela_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    import json
+    body = await request.json()
+    sp = SubParcela(
+        parcela_id=parcela_id,
+        nombre=body.get("nombre", "Sin nombre"),
+        uso=body.get("uso") or None,
+        color=body.get("color", "#198754"),
+        geojson=json.dumps(body["geometry"]),
+        observaciones=body.get("observaciones") or None,
+    )
+    db.add(sp)
+    db.commit()
+    db.refresh(sp)
+    return JSONResponse({"id": sp.id, "nombre": sp.nombre, "color": sp.color})
+
+
+@router.post("/parcela/{parcela_id}/subparcela/{sp_id}/eliminar")
+def eliminar_subparcela(
+    parcela_id: int,
+    sp_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    sp = db.query(SubParcela).filter(SubParcela.id == sp_id).first()
+    if sp:
+        db.delete(sp)
+        db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/subparcela/{sp_id}/ocupacion/nueva")
+def nueva_ocupacion_subparcela(
+    parcela_id: int,
+    sp_id: int,
+    lote_id: int = Form(...),
+    fecha_entrada: str = Form(...),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    # Cerrar ocupación activa si existe
+    activa = db.query(OcupacionSubParcela).filter(
+        OcupacionSubParcela.subparcela_id == sp_id,
+        OcupacionSubParcela.fecha_salida.is_(None),
+    ).first()
+    if activa:
+        activa.fecha_salida = date.fromisoformat(fecha_entrada)
+    db.add(OcupacionSubParcela(
+        subparcela_id=sp_id,
+        lote_id=lote_id,
+        fecha_entrada=date.fromisoformat(fecha_entrada),
+        observaciones=observaciones or None,
+    ))
+    db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/subparcela/{sp_id}/ocupacion/cerrar")
+def cerrar_ocupacion_subparcela(
+    parcela_id: int,
+    sp_id: int,
+    fecha_salida: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    activa = db.query(OcupacionSubParcela).filter(
+        OcupacionSubParcela.subparcela_id == sp_id,
+        OcupacionSubParcela.fecha_salida.is_(None),
+    ).first()
+    if activa:
+        activa.fecha_salida = date.fromisoformat(fecha_salida)
         db.commit()
     return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
