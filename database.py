@@ -25,9 +25,10 @@ def get_db():
 
 
 def create_tables():
-    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario
+    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario, maestros
     Base.metadata.create_all(bind=engine)
     _migrate_sqlite()
+    _seed_maestros()
 
 
 def _migrate_sqlite():
@@ -50,3 +51,29 @@ def _migrate_sqlite():
                 conn.commit()
             except Exception:
                 pass  # la columna ya existe
+
+
+def _seed_maestros():
+    """Inserta especies y razas iniciales si las tablas están vacías."""
+    from models.maestros import Especie, Raza
+    db = SessionLocal()
+    try:
+        if db.query(Especie).count() > 0:
+            return
+        datos = {
+            "Bovino": ["Asturiana de la Montaña", "Asturiana de los Valles", "Frisona", "Parda Alpina",
+                       "Limusina", "Charolesa", "Rubia Gallega", "Pirenaica", "Retinta", "Cruzado bovino"],
+            "Ovino":  ["Merina", "Latxa", "Churra", "Castellana", "Cruzado ovino"],
+            "Caprino": ["Murciana-Granadina", "Malagueña", "Payoya", "Cruzado caprino"],
+            "Equino":  ["Pura Raza Española", "Asturcón", "Cruzado equino"],
+            "Porcino": ["Ibérico", "Duroc", "Landrace", "Cruzado porcino"],
+        }
+        for especie_nombre, razas in datos.items():
+            e = Especie(nombre=especie_nombre, codigo=especie_nombre[:3].upper())
+            db.add(e)
+            db.flush()
+            for r in razas:
+                db.add(Raza(nombre=r, especie_id=e.id))
+        db.commit()
+    finally:
+        db.close()

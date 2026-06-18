@@ -281,20 +281,19 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Raza</label>
-                        <input type="text" name="raza" class="form-control" list="razas_bovinas_ficha"
-                               value="{{ animal.raza or '' }}">
-                        <datalist id="razas_bovinas_ficha">
-                            <option value="Asturiana de la Montaña">
-                            <option value="Asturiana de los Valles">
-                            <option value="Frisona">
-                            <option value="Parda Alpina">
-                            <option value="Limusina">
-                            <option value="Charolesa">
-                            <option value="Rubia Gallega">
-                            <option value="Pirenaica">
-                            <option value="Retinta">
-                            <option value="Cruzado">
-                        </datalist>
+                        <select name="raza" class="form-select">
+                            <option value="">— Sin especificar —</option>
+                            {% for e in especies %}
+                            <optgroup label="{{ e.nombre }}">
+                                {% for r in e.razas %}
+                                <option value="{{ r.nombre }}"
+                                    {% if animal.raza == r.nombre %}selected{% endif %}>
+                                    {{ r.nombre }}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Estado</label>

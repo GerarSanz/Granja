@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Especies y Razas — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-diagram-3 me-2"></i>Especies y Razas</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEspecie">
+            <i class="bi bi-plus-lg me-1"></i>Especie
+        </button>
+        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalRaza">
+            <i class="bi bi-plus-lg me-1"></i>Raza
+        </button>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Especies -->
+    <div class="col-12 col-md-4">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-collection me-2 text-secondary"></i>Especies
+            </div>
+            <div class="card-body p-0">
+                {% if especies %}
+                <ul class="list-group list-group-flush">
+                    {% for e in especies %}
+                    <li class="list-group-item py-2 d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="fw-semibold small">{{ e.nombre }}</span>
+                            {% if e.codigo %}
+                            <span class="badge bg-secondary ms-1" style="font-size:.65rem;">{{ e.codigo }}</span>
+                            {% endif %}
+                            <div class="text-muted" style="font-size:.75rem;">{{ e.razas | length }} raza(s)</div>
+                        </div>
+                        {% if not e.razas %}
+                        <form method="post" action="/maestros/especie/{{ e.id }}/eliminar"
+                              onsubmit="return confirm('¿Eliminar especie {{ e.nombre }}?')">
+                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted" style="font-size:.7rem;" title="Tiene razas asociadas">
+                            <i class="bi bi-lock"></i>
+                        </span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin especies. Añade una para empezar.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Razas por especie -->
+    <div class="col-12 col-md-8">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-list-ul me-2 text-success"></i>Razas
+            </div>
+            <div class="card-body p-0">
+                {% if razas %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Raza</th>
+                                <th>Especie</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set ns = namespace(especie_actual='') %}
+                            {% for r in razas %}
+                            <tr>
+                                <td class="fw-semibold">{{ r.nombre }}</td>
+                                <td>
+                                    <span class="badge bg-secondary bg-opacity-75">{{ r.especie.nombre }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <form method="post" action="/maestros/raza/{{ r.id }}/eliminar"
+                                          onsubmit="return confirm('¿Eliminar raza {{ r.nombre }}?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin razas registradas.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva especie -->
+<div class="modal fade" id="modalEspecie" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Nueva especie</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/maestros/especie/nueva">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required
+                               placeholder="Ej: Bovino">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Código</label>
+                        <input type="text" name="codigo" class="form-control form-control-sm"
+                               placeholder="Ej: BOV">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-secondary btn-sm">Crear especie</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva raza -->
+<div class="modal fade" id="modalRaza" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Nueva raza</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/maestros/raza/nueva">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Especie <span class="text-danger">*</span></label>
+                        <select name="especie_id" class="form-select form-select-sm" required>
+                            <option value="">— Selecciona —</option>
+                            {% for e in especies %}
+                            <option value="{{ e.id }}">{{ e.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nombre de la raza <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required
+                               placeholder="Ej: Asturiana de la Montaña">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Crear raza</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

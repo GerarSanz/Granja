@@ -8,6 +8,7 @@ from database import get_db
 from auth import get_current_user
 from models.animal import Animal, EstadoAnimal, SexoAnimal
 from models.lote import Lote
+from models.maestros import Raza, Especie
 from services.importacion import parsear_excel, parsear_csv, generar_plantilla_excel
 from models.reproduccion import Reproduccion
 from models.usuario import Usuario
@@ -59,6 +60,7 @@ def nuevo_animal_form(
     lotes = db.query(Lote).all()
     hembras = db.query(Animal).filter(Animal.sexo == SexoAnimal.hembra, Animal.fecha_baja.is_(None)).all()
     machos = db.query(Animal).filter(Animal.sexo == SexoAnimal.macho, Animal.fecha_baja.is_(None)).all()
+    especies = db.query(Especie).order_by(Especie.nombre).all()
     return templates.TemplateResponse("animales/form.html", {
         "request": request,
         "animal": None,
@@ -66,6 +68,7 @@ def nuevo_animal_form(
         "hembras": hembras,
         "machos": machos,
         "estados": EstadoAnimal,
+        "especies": especies,
         "current_user": current_user,
     })
 
@@ -264,11 +267,13 @@ def ficha_animal(
         Reproduccion.animal_crotal == crotal.upper()
     ).order_by(Reproduccion.fecha_cubricion.desc()).all()
     lotes = db.query(Lote).all()
+    especies = db.query(Especie).order_by(Especie.nombre).all()
     return templates.TemplateResponse("animales/ficha.html", {
         "request": request,
         "animal": animal,
         "reproducciones": reproducciones,
         "lotes": lotes,
+        "especies": especies,
         "current_user": current_user,
     })
 
