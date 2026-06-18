@@ -148,48 +148,39 @@ async def sigpac_proxy(parcela_id: int, db: Session = Depends(get_db)):
     if not p or not all([p.provincia_codigo, p.municipio_codigo, p.poligono, p.parcela_sigpac]):
         return JSONResponse({"error": "Referencia SIGPAC incompleta"}, status_code=400)
 
-    prov = str(p.provincia_codigo)
-    mun = str(p.municipio_codigo)
-    pol = str(p.poligono)
-    par = str(p.parcela_sigpac)
-
-    # Catastro INSPIRE WFS
-    # Referencia catastral rústica: PP(2) + MMM(3) + A + POL(3) + PAR(5) = 14 chars
-    # Ej: 33035A01712293  (Asturias, Llanera, rústica, pol 17, parcela 12293)
-    ref14 = f"{prov.zfill(2)}{mun.zfill(3)}A{pol.zfill(3)}{par.zfill(5)}"
-    # Usar params dict para que httpx codifique correctamente el % del LIKE como %25
+    # SIGPAC en la Nube — OGC API Features del FEGA.
+    # Devuelve GeoJSON (WGS84) con todos los recintos de la parcela.
     params = {
-        "SERVICE": "WFS",
-        "VERSION": "2.0.0",
-        "REQUEST": "GetFeature",
-        "TYPENAMES": "cp:CadastralParcel",
-        "OUTPUTFORMAT": "json",
-        "SRSNAME": "EPSG:4258",
-        "CQL_FILTER": f"nationalCadastralReference LIKE '{ref14}%'",
+        "provincia": int(p.provincia_codigo),
+        "municipio": int(p.municipio_codigo),
+        "poligono": int(p.poligono),
+        "parcela": int(p.parcela_sigpac),
+        "f": "json",
+        "limit": 100,
     }
+    url = "https://sigpac-hubcloud.es/ogcapi/collections/recintos/items"
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
             resp = await client.get(
-                "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx",
+                url,
                 params=params,
                 headers={"User-Agent": "GranjaManager/1.0", "Accept": "application/json"},
             )
             if not resp.is_success:
                 return JSONResponse(
-                    {"error": f"Catastro {resp.status_code}: {resp.text[:300]}", "ref": ref14},
+                    {"error": f"SIGPAC {resp.status_code}: {resp.text[:300]}"},
                     status_code=502,
                 )
             content_type = resp.headers.get("content-type", "")
             if "json" not in content_type:
-                # El servidor respondió con XML u otro formato — devolver fragmento para depuración
                 return JSONResponse(
-                    {"error": f"Catastro devolvió formato inesperado ({content_type}): {resp.text[:300]}", "ref": ref14},
+                    {"error": f"SIGPAC devolvió formato inesperado ({content_type}): {resp.text[:300]}"},
                     status_code=502,
                 )
             data = resp.json()
             if not data.get("features"):
                 return JSONResponse(
-                    {"error": f"Parcela no encontrada (ref: {ref14}). Verifica polígono y parcela."},
+                    {"error": "Parcela no encontrada en SIGPAC. Verifica municipio, polígono y parcela."},
                     status_code=404,
                 )
             return JSONResponse(data)

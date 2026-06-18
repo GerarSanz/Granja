@@ -251,10 +251,12 @@ async function cargarSigpac() {
         style: { color: '#198754', weight: 2.5, fillColor: '#198754', fillOpacity: 0.15 },
         onEachFeature(feature, layer) {
             const p = feature.properties || {};
-            const sup = p.dn_surface ? (p.dn_surface / 10000).toFixed(4) + ' ha' : '—';
-            const uso = p.uso_sigpac || '—';
+            const pend = (p.pendiente_media != null) ? p.pendiente_media + ' %' : '—';
+            const alt = (p.altitud != null) ? p.altitud + ' m' : '—';
             layer.bindPopup(
-                `<strong>Recinto ${p.dn_oid || ''}</strong><br>Uso: ${uso}<br>Superficie: ${sup}`
+                `<strong>Recinto ${p.recinto ?? ''}</strong>` +
+                `<br>Pendiente media: ${pend}` +
+                `<br>Altitud: ${alt}`
             );
         }
     }).addTo(mapa);
@@ -262,9 +264,8 @@ async function cargarSigpac() {
     mapa.fitBounds(sigpacLayer.getBounds(), { padding: [20, 20] });
 
     const features = data.features || [];
-    const supTotal = features.reduce((acc, f) => acc + (f.properties?.dn_surface || 0), 0);
     info.innerHTML = `<div class="alert alert-success py-1 mb-0">
-        ${features.length} recinto(s) — ${(supTotal / 10000).toFixed(4)} ha oficiales
+        <i class="bi bi-check-circle me-1"></i>${features.length} recinto(s) cargado(s)
     </div>`;
     btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Cargado';
 }
