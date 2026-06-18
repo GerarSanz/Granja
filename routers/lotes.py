@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, timedelta
 import asyncio
 import httpx
 from database import get_db
@@ -16,7 +16,7 @@ def _resolver_ip_google(hostname: str) -> str:
     r.lifetime = 5.0
     return str(r.resolve(hostname, "A")[0])
 from auth import get_current_user
-from models.lote import Lote, Parcela, OcupacionParcela, AsignacionToro
+from models.lote import Lote, Parcela, OcupacionParcela, AsignacionToro, AbonoParcela, TratamientoParcela
 from models.animal import Animal
 from models.usuario import Usuario
 
@@ -102,10 +102,20 @@ def detalle_parcela(
     ocupaciones = db.query(OcupacionParcela).filter(
         OcupacionParcela.parcela_id == parcela_id
     ).order_by(OcupacionParcela.fecha_entrada.desc()).all()
+    abonados = db.query(AbonoParcela).filter(
+        AbonoParcela.parcela_id == parcela_id
+    ).order_by(AbonoParcela.fecha.desc()).all()
+    tratamientos_parcela = db.query(TratamientoParcela).filter(
+        TratamientoParcela.parcela_id == parcela_id
+    ).order_by(TratamientoParcela.fecha.desc()).all()
     return templates.TemplateResponse("lotes/parcela.html", {
         "request": request,
         "parcela": parcela,
         "ocupaciones": ocupaciones,
+        "abonados": abonados,
+        "tratamientos_parcela": tratamientos_parcela,
+        "hoy": date.today(),
+        "timedelta": timedelta,
         "current_user": current_user,
     })
 
@@ -280,3 +290,95 @@ def retirar_toro(
         at.fecha_salida = date.fromisoformat(fecha_salida)
         db.commit()
     return RedirectResponse(url="/lotes", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/abono/nuevo")
+def nuevo_abono(
+    parcela_id: int,
+    fecha: str = Form(...),
+    tipo: str = Form(...),
+    producto: str = Form(default=""),
+    cantidad: str = Form(default=""),
+    unidad: str = Form(default=""),
+    superficie_ha: str = Form(default=""),
+    es_ecologico: str = Form(default="1"),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    parcela = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not parcela:
+        return RedirectResponse(url="/lotes", status_code=302)
+    db.add(AbonoParcela(
+        parcela_id=parcela_id,
+        fecha=date.fromisoformat(fecha),
+        tipo=tipo,
+        producto=producto.strip() or None,
+        cantidad=float(cantidad) if cantidad else None,
+        unidad=unidad.strip() or None,
+        superficie_ha=float(superficie_ha) if superficie_ha else parcela.hectareas,
+        es_ecologico=1 if es_ecologico else 0,
+        observaciones=observaciones.strip() or None,
+    ))
+    db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/abono/{abono_id}/eliminar")
+def eliminar_abono(
+    parcela_id: int,
+    abono_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    a = db.query(AbonoParcela).filter(AbonoParcela.id == abono_id).first()
+    if a:
+        db.delete(a)
+        db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/tratamiento/nuevo")
+def nuevo_tratamiento_parcela(
+    parcela_id: int,
+    fecha: str = Form(...),
+    tipo: str = Form(...),
+    producto: str = Form(...),
+    dosis: str = Form(default=""),
+    superficie_ha: str = Form(default=""),
+    plazo_seguridad_dias: str = Form(default=""),
+    es_ecologico: str = Form(default="1"),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    parcela = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not parcela:
+        return RedirectResponse(url="/lotes", status_code=302)
+    db.add(TratamientoParcela(
+        parcela_id=parcela_id,
+        fecha=date.fromisoformat(fecha),
+        tipo=tipo,
+        producto=producto.strip(),
+        dosis=dosis.strip() or None,
+        superficie_ha=float(superficie_ha) if superficie_ha else parcela.hectareas,
+        plazo_seguridad_dias=int(plazo_seguridad_dias) if plazo_seguridad_dias else None,
+        es_ecologico=1 if es_ecologico else 0,
+        observaciones=observaciones.strip() or None,
+    ))
+    db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/tratamiento/{trat_id}/eliminar")
+def eliminar_tratamiento_parcela(
+    parcela_id: int,
+    trat_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    t = db.query(TratamientoParcela).filter(TratamientoParcela.id == trat_id).first()
+    if t:
+        db.delete(t)
+        db.commit()
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)

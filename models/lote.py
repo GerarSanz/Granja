@@ -33,6 +33,42 @@ class Parcela(Base):
     parcela_sigpac = Column(Integer, nullable=True)
 
     ocupaciones = relationship("OcupacionParcela", back_populates="parcela")
+    abonados = relationship("AbonoParcela", back_populates="parcela", cascade="all, delete-orphan")
+    tratamientos = relationship("TratamientoParcela", back_populates="parcela", cascade="all, delete-orphan")
+
+
+class AbonoParcela(Base):
+    __tablename__ = "abonos_parcela"
+
+    id = Column(Integer, primary_key=True, index=True)
+    parcela_id = Column(Integer, ForeignKey("parcelas.id"), nullable=False)
+    fecha = Column(Date, nullable=False)
+    tipo = Column(String(50), nullable=False)   # mineral, orgánico, estiércol, purín, compost, verde
+    producto = Column(String(200), nullable=True)
+    cantidad = Column(Float, nullable=True)
+    unidad = Column(String(20), nullable=True)  # kg, t, m3, l
+    superficie_ha = Column(Float, nullable=True)
+    es_ecologico = Column(Integer, default=1)   # 1=sí, 0=no
+    observaciones = Column(Text, nullable=True)
+
+    parcela = relationship("Parcela", back_populates="abonados")
+
+
+class TratamientoParcela(Base):
+    __tablename__ = "tratamientos_parcela"
+
+    id = Column(Integer, primary_key=True, index=True)
+    parcela_id = Column(Integer, ForeignKey("parcelas.id"), nullable=False)
+    fecha = Column(Date, nullable=False)
+    tipo = Column(String(50), nullable=False)   # herbicida, fungicida, insecticida, enmienda, otro
+    producto = Column(String(200), nullable=False)
+    dosis = Column(String(100), nullable=True)
+    superficie_ha = Column(Float, nullable=True)
+    plazo_seguridad_dias = Column(Integer, nullable=True)
+    es_ecologico = Column(Integer, default=1)
+    observaciones = Column(Text, nullable=True)
+
+    parcela = relationship("Parcela", back_populates="tratamientos")
 
 
 class OcupacionParcela(Base):
