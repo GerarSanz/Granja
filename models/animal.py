@@ -46,6 +46,7 @@ class Animal(Base):
         back_populates="animal",
     )
     tratamientos = relationship("Tratamiento", back_populates="animal")
+    desparasitaciones = relationship("Desparasitacion", back_populates="animal")
     ventas = relationship("Venta", back_populates="animal")
 
     @property

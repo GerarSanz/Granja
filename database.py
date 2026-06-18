@@ -39,6 +39,7 @@ def _migrate_sqlite():
         ("parcelas", "municipio_codigo", "INTEGER"),
         ("parcelas", "poligono", "INTEGER"),
         ("parcelas", "parcela_sigpac", "INTEGER"),
+        # desparasitaciones se crea como tabla nueva en create_all — no necesita ALTER TABLE
     ]
     with engine.connect() as conn:
         for tabla, columna, tipo in migrations:

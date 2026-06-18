@@ -8,6 +8,9 @@
         <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalTratamiento">
             <i class="bi bi-plus-lg me-1"></i>Tratamiento
         </button>
+        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalDesparasitacion">
+            <i class="bi bi-bug me-1"></i>Desparasitación
+        </button>
         <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalVacuna">
             <i class="bi bi-shield-plus me-1"></i>Plan vacunal
         </button>
@@ -51,7 +54,107 @@
 </div>
 {% endif %}
 
+<!-- Desparasitación -->
+{% if proxima_desp and proxima_desp.proxima_fecha %}
+{% set dias_desp = (proxima_desp.proxima_fecha - hoy).days %}
+<div class="card mb-3 {% if dias_desp <= 14 %}border-warning{% else %}border-0{% endif %}">
+    <div class="card-header py-2 {% if dias_desp <= 14 %}bg-warning bg-opacity-10{% else %}bg-light{% endif %} fw-semibold">
+        <i class="bi bi-bug me-2 {% if dias_desp <= 14 %}text-warning{% else %}text-success{% endif %}"></i>
+        Próxima desparasitación
+        {% if dias_desp <= 0 %}
+        <span class="badge bg-danger ms-2">Vencida</span>
+        {% elif dias_desp <= 14 %}
+        <span class="badge bg-warning text-dark ms-2">En {{ dias_desp }} días</span>
+        {% else %}
+        <span class="badge bg-secondary ms-2">{{ proxima_desp.proxima_fecha.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body py-2 small text-muted">
+        Último tratamiento: <strong>{{ proxima_desp.producto }}</strong>
+        el {{ proxima_desp.fecha.strftime('%d/%m/%Y') }}
+        {% if proxima_desp.aplica_todo_rebano %}· Todo el rebaño{% elif proxima_desp.animal_crotal %}· {{ proxima_desp.animal_crotal }}{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="row g-3">
+
+    <!-- Historial desparasitación -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold"><i class="bi bi-bug me-2 text-success"></i>Desparasitaciones</span>
+                <button class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalDesparasitacion">
+                    <i class="bi bi-plus-lg me-1"></i>Registrar
+                </button>
+            </div>
+            <div class="card-body p-0">
+                {% if desparasitaciones %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Producto</th>
+                                <th class="d-none d-md-table-cell">Principio activo</th>
+                                <th class="d-none d-md-table-cell">Dosis / Vía</th>
+                                <th>Aplica a</th>
+                                <th>Próxima</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in desparasitaciones %}
+                            <tr>
+                                <td class="text-muted">{{ d.fecha.strftime('%d/%m/%Y') }}</td>
+                                <td class="fw-semibold">{{ d.producto }}</td>
+                                <td class="d-none d-md-table-cell text-muted">{{ d.principio_activo or '—' }}</td>
+                                <td class="d-none d-md-table-cell text-muted">
+                                    {{ d.dosis or '—' }}
+                                    {% if d.via_administracion %}· {{ d.via_administracion }}{% endif %}
+                                </td>
+                                <td>
+                                    {% if d.aplica_todo_rebano %}
+                                    <span class="badge bg-success bg-opacity-75">Todo el rebaño</span>
+                                    {% elif d.animal_crotal %}
+                                    <a href="/animales/{{ d.animal_crotal }}" class="text-decoration-none">
+                                        {{ d.animal.display_name if d.animal else d.animal_crotal }}
+                                    </a>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if d.proxima_fecha %}
+                                    {% set dias = (d.proxima_fecha - hoy).days %}
+                                    <span class="{% if dias < 0 %}text-danger{% elif dias <= 14 %}text-warning fw-semibold{% else %}text-muted{% endif %}">
+                                        {{ d.proxima_fecha.strftime('%d/%m/%Y') }}
+                                    </span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    <form method="post" action="/sanidad/desparasitacion/{{ d.id }}/eliminar"
+                                          onsubmit="return confirm('¿Eliminar este registro?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-bug fs-3 d-block mb-2 opacity-25"></i>
+                    Sin desparasitaciones registradas
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-0">
 
     <!-- Plan vacunal -->
     <div class="col-12 col-lg-5">
@@ -304,6 +407,96 @@
                 </div>
                 <div class="modal-footer py-2">
                     <button type="submit" class="btn btn-primary btn-sm">Añadir al plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva desparasitación -->
+<div class="modal fade" id="modalDesparasitacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-bug me-2 text-success"></i>Registrar desparasitación</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/sanidad/desparasitacion/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm"
+                                   value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Vía</label>
+                            <select name="via_administracion" class="form-select form-select-sm">
+                                <option value="">—</option>
+                                <option>oral</option>
+                                <option>inyectable SC</option>
+                                <option>inyectable IM</option>
+                                <option>pour-on (derrame)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Producto <span class="text-danger">*</span></label>
+                            <input type="text" name="producto" class="form-control form-control-sm" required
+                                   placeholder="Ej: Ivomec, Dectomax, Albendazol…">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Principio activo</label>
+                            <input type="text" name="principio_activo" class="form-control form-control-sm"
+                                   placeholder="Ej: Ivermectina">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Dosis</label>
+                            <input type="text" name="dosis" class="form-control form-control-sm"
+                                   placeholder="Ej: 1 ml/50kg">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" name="aplica_todo_rebano"
+                                       value="1" id="checkTodoRebano" checked
+                                       onchange="document.getElementById('selectAnimalDesp').style.display = this.checked ? 'none' : 'block'">
+                                <label class="form-check-label small fw-semibold" for="checkTodoRebano">
+                                    Todo el rebaño
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12" id="selectAnimalDesp" style="display:none">
+                            <label class="form-label small fw-semibold">Animal individual</label>
+                            <select name="animal_crotal" class="form-select form-select-sm">
+                                <option value="">— Selecciona —</option>
+                                {% for a in animales %}
+                                <option value="{{ a.crotal }}">{{ a.display_name }} ({{ a.crotal }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Periodicidad</small></div>
+                        <div class="col-6">
+                            <label class="form-label small">Cada (meses)</label>
+                            <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm"
+                                   placeholder="Ej: 6">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Próxima fecha (opcional)</label>
+                            <input type="date" name="proxima_fecha" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Si indicas periodicidad, la próxima fecha se calcula automáticamente
+                    </small>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Guardar
+                    </button>
                 </div>
             </form>
         </div>

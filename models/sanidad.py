@@ -33,6 +33,24 @@ class Tratamiento(Base):
     animal = relationship("Animal", back_populates="tratamientos")
 
 
+class Desparasitacion(Base):
+    __tablename__ = "desparasitaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(Date, nullable=False)
+    producto = Column(String(200), nullable=False)
+    principio_activo = Column(String(200), nullable=True)
+    dosis = Column(String(100), nullable=True)
+    via_administracion = Column(String(50), nullable=True)  # oral, inyectable, pour-on
+    aplica_todo_rebano = Column(Boolean, default=True)
+    animal_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=True)
+    periodicidad_meses = Column(Integer, nullable=True)
+    proxima_fecha = Column(Date, nullable=True)
+    observaciones = Column(Text, nullable=True)
+
+    animal = relationship("Animal", back_populates="desparasitaciones")
+
+
 class PlanVacunal(Base):
     __tablename__ = "plan_vacunal"
 

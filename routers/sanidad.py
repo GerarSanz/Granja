@@ -6,7 +6,7 @@ from datetime import date
 from database import get_db
 from auth import get_current_user
 from models.animal import Animal
-from models.sanidad import Tratamiento, PlanVacunal
+from models.sanidad import Tratamiento, PlanVacunal, Desparasitacion
 from models.usuario import Usuario
 
 router = APIRouter(prefix="/sanidad", tags=["sanidad"])
@@ -23,6 +23,10 @@ def lista_sanidad(
     tratamientos = db.query(Tratamiento).order_by(Tratamiento.fecha.desc()).limit(50).all()
     plan_vacunal = db.query(PlanVacunal).filter(PlanVacunal.activo == True).order_by(PlanVacunal.proxima_fecha).all()
     animales = db.query(Animal).filter(Animal.fecha_baja.is_(None)).order_by(Animal.crotal).all()
+    desparasitaciones = db.query(Desparasitacion).order_by(Desparasitacion.fecha.desc()).limit(30).all()
+    proxima_desp = db.query(Desparasitacion).filter(
+        Desparasitacion.proxima_fecha.isnot(None)
+    ).order_by(Desparasitacion.proxima_fecha.desc()).first()
 
     # Tiempos de espera activos
     en_espera = db.query(Tratamiento).filter(
@@ -35,6 +39,8 @@ def lista_sanidad(
         "plan_vacunal": plan_vacunal,
         "animales": animales,
         "en_espera": en_espera,
+        "desparasitaciones": desparasitaciones,
+        "proxima_desp": proxima_desp,
         "hoy": hoy,
         "current_user": current_user,
     })
@@ -121,5 +127,63 @@ def completar_vacuna(
                 pv.proxima_fecha = pv.ultima_fecha + relativedelta(months=pv.periodicidad_meses)
             except Exception:
                 pv.proxima_fecha = pv.ultima_fecha + timedelta(days=pv.periodicidad_meses * 30)
+        db.commit()
+    return RedirectResponse(url="/sanidad", status_code=302)
+
+
+@router.post("/desparasitacion/nueva")
+def nueva_desparasitacion(
+    fecha: str = Form(...),
+    producto: str = Form(...),
+    principio_activo: str = Form(default=""),
+    dosis: str = Form(default=""),
+    via_administracion: str = Form(default=""),
+    aplica_todo_rebano: str = Form(default=""),
+    animal_crotal: str = Form(default=""),
+    periodicidad_meses: str = Form(default=""),
+    proxima_fecha: str = Form(default=""),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    from dateutil.relativedelta import relativedelta
+    fecha_d = date.fromisoformat(fecha)
+    periodo = int(periodicidad_meses) if periodicidad_meses else None
+
+    if proxima_fecha:
+        prox = date.fromisoformat(proxima_fecha)
+    elif periodo:
+        prox = fecha_d + relativedelta(months=periodo)
+    else:
+        prox = None
+
+    todo_rebano = bool(aplica_todo_rebano)
+
+    d = Desparasitacion(
+        fecha=fecha_d,
+        producto=producto,
+        principio_activo=principio_activo or None,
+        dosis=dosis or None,
+        via_administracion=via_administracion or None,
+        aplica_todo_rebano=todo_rebano,
+        animal_crotal=animal_crotal.upper() if not todo_rebano and animal_crotal else None,
+        periodicidad_meses=periodo,
+        proxima_fecha=prox,
+        observaciones=observaciones or None,
+    )
+    db.add(d)
+    db.commit()
+    return RedirectResponse(url="/sanidad", status_code=302)
+
+
+@router.post("/desparasitacion/{desp_id}/eliminar")
+def eliminar_desparasitacion(
+    desp_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    d = db.query(Desparasitacion).filter(Desparasitacion.id == desp_id).first()
+    if d:
+        db.delete(d)
         db.commit()
     return RedirectResponse(url="/sanidad", status_code=302)
