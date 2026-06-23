@@ -106,14 +106,17 @@
 <!-- Animales sin lote -->
 {% if animales_sin_lote %}
 <div class="card mb-3 border-warning">
-    <button class="btn btn-link text-start w-100 d-flex align-items-center justify-content-between py-2 px-3 text-decoration-none"
-            style="color:inherit" data-bs-toggle="collapse" data-bs-target="#sinLoteCollapse">
-        <span class="fw-semibold small">
-            <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
-            <span class="text-warning-emphasis">{{ animales_sin_lote | length }} animales sin lote asignado</span>
-        </span>
-        <i class="bi bi-chevron-down text-muted small"></i>
-    </button>
+    <div class="d-flex align-items-center px-3 py-2">
+        <button class="btn btn-link text-start flex-grow-1 d-flex align-items-center gap-2 p-0 text-decoration-none"
+                style="color:inherit" data-bs-toggle="collapse" data-bs-target="#sinLoteCollapse">
+            <i class="bi bi-exclamation-triangle text-warning"></i>
+            <span class="fw-semibold small text-warning-emphasis">{{ animales_sin_lote | length }} animales sin lote asignado</span>
+            <i class="bi bi-chevron-down text-muted small ms-1"></i>
+        </button>
+        <a href="/animales?lote_id=sin_lote" class="btn btn-xs btn-outline-warning ms-auto">
+            <i class="bi bi-filter me-1"></i>Ver en lista
+        </a>
+    </div>
     <div class="collapse" id="sinLoteCollapse">
         <div class="card-body pt-0 pb-2">
             <div class="d-flex flex-wrap gap-2">

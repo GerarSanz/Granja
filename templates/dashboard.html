@@ -156,18 +156,20 @@
             </div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="/animales/nuevo" class="btn btn-outline-success btn-sm">
+                    <a href="/animales/nuevo" class="btn btn-success btn-sm">
                         <i class="bi bi-plus-circle me-1"></i>Nuevo animal
                     </a>
                     <a href="/reproduccion/cubricion/nueva" class="btn btn-outline-warning btn-sm">
                         <i class="bi bi-heart-pulse me-1"></i>Registrar cubrición
                     </a>
-                    <a href="/alimentacion" class="btn btn-outline-primary btn-sm">
+                    <a href="/alimentacion" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-basket3 me-1"></i>Actualizar stock
                     </a>
+                    {% if vacias > 0 %}
                     <a href="/animales?estado=vacia" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-search me-1"></i>Vacas vacías ({{ vacias }})
                     </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

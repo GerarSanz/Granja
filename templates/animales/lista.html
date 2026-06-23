@@ -42,8 +42,11 @@
             <div class="col-6 col-sm-2">
                 <select name="lote_id" class="form-select form-select-sm">
                     <option value="">Todos los lotes</option>
+                    <option value="sin_lote" {% if filtro_lote == 'sin_lote' %}selected{% endif %}>
+                        — Sin lote asignado
+                    </option>
                     {% for l in lotes %}
-                    <option value="{{ l.id }}" {% if filtro_lote == l.id %}selected{% endif %}>{{ l.nombre }}</option>
+                    <option value="{{ l.id }}" {% if filtro_lote == l.id|string %}selected{% endif %}>{{ l.nombre }}</option>
                     {% endfor %}
                 </select>
             </div>

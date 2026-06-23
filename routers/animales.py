@@ -22,7 +22,7 @@ def lista_animales(
     request: Request,
     estado: str = None,
     sexo: str = None,
-    lote_id: int = None,
+    lote_id: str = None,
     buscar: str = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -32,8 +32,10 @@ def lista_animales(
         q = q.filter(Animal.estado == estado)
     if sexo:
         q = q.filter(Animal.sexo == sexo)
-    if lote_id:
-        q = q.filter(Animal.lote_id == lote_id)
+    if lote_id == "sin_lote":
+        q = q.filter(Animal.lote_id.is_(None))
+    elif lote_id:
+        q = q.filter(Animal.lote_id == int(lote_id))
     if buscar:
         q = q.filter(or_(Animal.crotal.contains(buscar), Animal.nombre.contains(buscar)))
     animales = q.order_by(Animal.crotal).all()

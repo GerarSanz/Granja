@@ -4,7 +4,10 @@
 
 {% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="/animales" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <a href="/animales" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1">
+        <i class="bi bi-arrow-left"></i>
+        <span class="d-none d-sm-inline small">Animales</span>
+    </a>
     <div>
         <h5 class="mb-0 fw-bold text-success lh-1">
             {% if animal.nombre %}{{ animal.nombre }}{% else %}{{ animal.crotal }}{% endif %}
