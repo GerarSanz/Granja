@@ -60,24 +60,27 @@
 <div class="card">
     <div class="card-body p-0">
         {% if animales %}
+        {% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
         <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0 align-middle">
+            <table class="table table-hover table-sm mb-0 align-middle table-clickable">
                 <thead class="table-light">
                     <tr>
-                        <th>Crotal</th>
-                        <th>Nombre</th>
+                        <th>Crotal / Nombre</th>
                         <th>Sexo</th>
                         <th>Estado</th>
                         <th class="d-none d-md-table-cell">Lote</th>
                         <th class="d-none d-md-table-cell">Nacimiento</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in animales %}
-                    <tr>
-                        <td><code class="small">{{ a.crotal }}</code></td>
-                        <td>{{ a.nombre or '—' }}</td>
+                    <tr onclick="window.location='/animales/{{ a.crotal }}'">
+                        <td>
+                            <span class="fw-semibold text-success">
+                                {% if a.nombre %}{{ a.nombre }}{% else %}<code class="small text-muted fw-normal">{{ a.crotal }}</code>{% endif %}
+                            </span>
+                            {% if a.nombre %}<br><code class="small text-muted" style="font-size:.7rem">{{ a.crotal }}</code>{% endif %}
+                        </td>
                         <td>
                             <i class="bi {% if a.sexo == 'hembra' %}bi-gender-female text-danger{% else %}bi-gender-male text-primary{% endif %}"></i>
                         </td>
@@ -89,7 +92,7 @@
                                 {% elif a.estado == 'semental' %}bg-primary
                                 {% elif a.estado == 'ternero' %}bg-light text-dark border
                                 {% else %}bg-light text-muted border{% endif %}">
-                                {{ a.estado }}
+                                {{ ESTADO_LABEL.get(a.estado, a.estado | capitalize) }}
                             </span>
                         </td>
                         <td class="d-none d-md-table-cell small text-muted">
@@ -97,11 +100,6 @@
                         </td>
                         <td class="d-none d-md-table-cell small text-muted">
                             {{ a.fecha_nacimiento.strftime('%d/%m/%Y') if a.fecha_nacimiento else '—' }}
-                        </td>
-                        <td>
-                            <a href="/animales/{{ a.crotal }}" class="btn btn-sm btn-outline-secondary py-0">
-                                <i class="bi bi-eye"></i>
-                            </a>
                         </td>
                     </tr>
                     {% endfor %}

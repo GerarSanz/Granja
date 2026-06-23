@@ -71,3 +71,32 @@ html {
         padding-bottom: 2rem;
     }
 }
+
+/* Filas de tabla clickables */
+.table-clickable tbody tr {
+    cursor: pointer;
+}
+.table-clickable tbody tr:hover td {
+    background-color: rgba(25, 135, 84, .04);
+}
+
+/* KPI cards del dashboard */
+.kpi-card {
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    padding: 1rem 0;
+    text-align: center;
+}
+.kpi-card .kpi-num {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.kpi-card .kpi-label {
+    font-size: .8rem;
+    color: #6c757d;
+    margin-top: .25rem;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}

@@ -37,24 +37,24 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if '/alimentacion' in request.url.path %}active{% endif %}" href="/alimentacion">
-                        <i class="bi bi-basket3"></i> Alimentación
+                    <a class="nav-link {% if '/sanidad' in request.url.path %}active{% endif %}" href="/sanidad">
+                        <i class="bi bi-capsule"></i> Sanidad
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if '/lotes' in request.url.path %}active{% endif %}" href="/lotes">
+                        <i class="bi bi-map"></i> Lotes
                     </a>
                 </li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if '/sanidad' in request.url.path or '/lotes' in request.url.path or '/economia' in request.url.path or '/exportacion' in request.url.path %}active{% endif %}"
+                    <a class="nav-link dropdown-toggle {% if '/alimentacion' in request.url.path or '/economia' in request.url.path or '/exportacion' in request.url.path or '/maestros' in request.url.path %}active{% endif %}"
                        href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-grid"></i> Más
                     </a>
                     <ul class="dropdown-menu">
                         <li>
-                            <a class="dropdown-item {% if '/sanidad' in request.url.path %}active{% endif %}" href="/sanidad">
-                                <i class="bi bi-capsule me-2 text-danger"></i>Sanidad
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item {% if '/lotes' in request.url.path %}active{% endif %}" href="/lotes">
-                                <i class="bi bi-map me-2 text-success"></i>Lotes y Parcelas
+                            <a class="dropdown-item {% if '/alimentacion' in request.url.path %}active{% endif %}" href="/alimentacion">
+                                <i class="bi bi-basket3 me-2 text-success"></i>Alimentación
                             </a>
                         </li>
                         <li>

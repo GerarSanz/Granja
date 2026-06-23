@@ -106,18 +106,23 @@
 <!-- Animales sin lote -->
 {% if animales_sin_lote %}
 <div class="card mb-3 border-warning">
-    <div class="card-header py-2 bg-warning bg-opacity-10 fw-semibold">
-        <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
-        Animales sin lote asignado ({{ animales_sin_lote | length }})
-    </div>
-    <div class="card-body py-2">
-        <div class="d-flex flex-wrap gap-2">
-            {% for a in animales_sin_lote %}
-            <a href="/animales/{{ a.crotal }}" class="btn btn-sm btn-outline-secondary">
-                {{ a.display_name }}
-                <small class="text-muted">({{ a.estado }})</small>
-            </a>
-            {% endfor %}
+    <button class="btn btn-link text-start w-100 d-flex align-items-center justify-content-between py-2 px-3 text-decoration-none"
+            style="color:inherit" data-bs-toggle="collapse" data-bs-target="#sinLoteCollapse">
+        <span class="fw-semibold small">
+            <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+            <span class="text-warning-emphasis">{{ animales_sin_lote | length }} animales sin lote asignado</span>
+        </span>
+        <i class="bi bi-chevron-down text-muted small"></i>
+    </button>
+    <div class="collapse" id="sinLoteCollapse">
+        <div class="card-body pt-0 pb-2">
+            <div class="d-flex flex-wrap gap-2">
+                {% for a in animales_sin_lote %}
+                <a href="/animales/{{ a.crotal }}" class="btn btn-xs btn-outline-secondary">
+                    {{ a.display_name }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
     </div>
 </div>

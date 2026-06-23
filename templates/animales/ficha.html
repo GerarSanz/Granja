@@ -2,10 +2,15 @@
 {% block title %}{{ animal.display_name }} — GranjaManager{% endblock %}
 {% block content %}
 
+{% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
 <div class="d-flex align-items-center gap-2 mb-3">
     <a href="/animales" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
-    <h5 class="mb-0 fw-bold text-success">{{ animal.display_name }}</h5>
-    <code class="small text-muted">{{ animal.crotal }}</code>
+    <div>
+        <h5 class="mb-0 fw-bold text-success lh-1">
+            {% if animal.nombre %}{{ animal.nombre }}{% else %}{{ animal.crotal }}{% endif %}
+        </h5>
+        {% if animal.nombre %}<code class="small text-muted" style="font-size:.72rem">{{ animal.crotal }}</code>{% endif %}
+    </div>
     <span class="badge ms-auto
         {% if animal.estado == 'gestante' %}bg-warning text-dark
         {% elif animal.estado == 'lactante' %}bg-info text-dark
@@ -13,7 +18,7 @@
         {% elif animal.estado == 'semental' %}bg-primary
         {% elif animal.estado == 'ternero' %}bg-light text-dark border
         {% else %}bg-light text-muted border{% endif %}">
-        {{ animal.estado }}
+        {{ ESTADO_LABEL.get(animal.estado, animal.estado | capitalize) }}
     </span>
 </div>
 
@@ -299,7 +304,7 @@
                         <label class="form-label fw-semibold">Estado</label>
                         <select name="estado" class="form-select">
                             {% for e in ['gestante','lactante','vacia','semental','ternero','recria','vendido','muerto','baja'] %}
-                            <option value="{{ e }}" {% if animal.estado == e %}selected{% endif %}>{{ e | capitalize }}</option>
+                            <option value="{{ e }}" {% if animal.estado == e %}selected{% endif %}>{{ ESTADO_LABEL.get(e, e | capitalize) }}</option>
                             {% endfor %}
                         </select>
                     </div>
