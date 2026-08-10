@@ -17,6 +17,7 @@ class Usuario(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(200), nullable=False)
     rol = Column(String(20), default=RolUsuario.operario)
-    whatsapp = Column(String(20), nullable=True)
+    whatsapp = Column(String(20), nullable=True)  # legacy, sin uso — ver telegram_chat_id
+    telegram_chat_id = Column(String(30), nullable=True)
     activo = Column(Boolean, default=True)
     creado_en = Column(DateTime, server_default=func.now())

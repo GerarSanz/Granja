@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Tareas — GranjaManager{% endblock %}
+{% block content %}
+
+{% set PRIORIDAD_LABEL = {'alta':'Alta','media':'Media','baja':'Baja'} %}
+{% set PRIORIDAD_BADGE = {'alta':'bg-danger','media':'bg-warning text-dark','baja':'bg-secondary'} %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-check2-square me-2"></i>Tareas</h5>
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaTarea">
+        <i class="bi bi-plus-lg me-1"></i>Tarea
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex align-items-center justify-content-between">
+        <div class="btn-group btn-group-sm">
+            <a href="/tareas?estado=pendientes" class="btn {% if estado == 'pendientes' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                Pendientes {% if n_pendientes %}<span class="badge bg-light text-dark ms-1">{{ n_pendientes }}</span>{% endif %}
+            </a>
+            <a href="/tareas?estado=completadas" class="btn {% if estado == 'completadas' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                Completadas
+            </a>
+            <a href="/tareas?estado=todas" class="btn {% if estado == 'todas' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                Todas
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if tareas %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle small">
+                <thead class="table-light">
+                    <tr>
+                        <th></th>
+                        <th>Tarea</th>
+                        <th>Prioridad</th>
+                        <th>Fecha límite</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tareas %}
+                    {% set vencida = t.fecha_limite and t.fecha_limite < hoy and not t.completada %}
+                    <tr class="{% if vencida %}table-danger{% endif %}">
+                        <td>
+                            <form method="post" action="/tareas/{{ t.id }}/{% if t.completada %}reabrir{% else %}completar{% endif %}">
+                                <button type="submit" class="btn btn-xs {% if t.completada %}btn-success{% else %}btn-outline-success{% endif %} py-0 px-1"
+                                        title="{% if t.completada %}Reabrir{% else %}Marcar completada{% endif %}">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                        <td>
+                            <span class="{% if t.completada %}text-decoration-line-through text-muted{% endif %} fw-semibold">
+                                {{ t.titulo }}
+                            </span>
+                            {% if t.es_recurrente %}
+                            <i class="bi bi-arrow-repeat text-primary ms-1" title="Recurrente cada {{ t.periodicidad_dias }} días"></i>
+                            {% endif %}
+                            {% if t.descripcion %}
+                            <div class="text-muted" style="font-size:.75rem;">{{ t.descripcion }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {{ PRIORIDAD_BADGE.get(t.prioridad, 'bg-secondary') }}">
+                                {{ PRIORIDAD_LABEL.get(t.prioridad, t.prioridad) }}
+                            </span>
+                        </td>
+                        <td class="{% if vencida %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                            {{ t.fecha_limite.strftime('%d/%m/%Y') if t.fecha_limite else '—' }}
+                        </td>
+                        <td>
+                            <button class="btn btn-xs btn-outline-primary py-0 px-1"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditTarea{{ t.id }}" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                        <td>
+                            <form method="post" action="/tareas/{{ t.id }}/eliminar"
+                                  onsubmit="return confirm('¿Eliminar esta tarea?')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Modal editar tarea -->
+                    <div class="modal fade" id="modalEditTarea{{ t.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-1 text-primary"></i>Editar tarea</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/tareas/{{ t.id }}/editar">
+                                    <div class="modal-body">
+                                        <div class="row g-2">
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Título <span class="text-danger">*</span></label>
+                                                <input type="text" name="titulo" class="form-control form-control-sm" value="{{ t.titulo }}" required>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Descripción</label>
+                                                <input type="text" name="descripcion" class="form-control form-control-sm" value="{{ t.descripcion or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Fecha límite</label>
+                                                <input type="date" name="fecha_limite" class="form-control form-control-sm"
+                                                       value="{{ t.fecha_limite.isoformat() if t.fecha_limite else '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Prioridad</label>
+                                                <select name="prioridad" class="form-select form-select-sm">
+                                                    <option value="alta" {% if t.prioridad == 'alta' %}selected{% endif %}>Alta</option>
+                                                    <option value="media" {% if t.prioridad == 'media' %}selected{% endif %}>Media</option>
+                                                    <option value="baja" {% if t.prioridad == 'baja' %}selected{% endif %}>Baja</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="es_recurrente" value="1"
+                                                           id="recEdit{{ t.id }}" {% if t.es_recurrente %}checked{% endif %}
+                                                           onchange="document.getElementById('periodoEdit{{ t.id }}').classList.toggle('d-none', !this.checked)">
+                                                    <label class="form-check-label small" for="recEdit{{ t.id }}">
+                                                        <i class="bi bi-arrow-repeat me-1"></i>Tarea recurrente
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 {% if not t.es_recurrente %}d-none{% endif %}" id="periodoEdit{{ t.id }}">
+                                                <label class="form-label small fw-semibold">Repetir cada (días)</label>
+                                                <input type="number" min="1" name="periodicidad_dias" class="form-control form-control-sm"
+                                                       value="{{ t.periodicidad_dias or '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+            {% if estado == 'completadas' %}Sin tareas completadas{% else %}Sin tareas pendientes{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Nueva tarea -->
+<div class="modal fade" id="modalNuevaTarea" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-check2-square me-1 text-success"></i>Nueva tarea</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/tareas/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Título <span class="text-danger">*</span></label>
+                            <input type="text" name="titulo" class="form-control form-control-sm" required
+                                   placeholder="Ej: Revisar cerca parcela Norte">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Descripción</label>
+                            <input type="text" name="descripcion" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha límite</label>
+                            <input type="date" name="fecha_limite" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Prioridad</label>
+                            <select name="prioridad" class="form-select form-select-sm">
+                                <option value="alta">Alta</option>
+                                <option value="media" selected>Media</option>
+                                <option value="baja">Baja</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="es_recurrente" value="1" id="recNueva"
+                                       onchange="document.getElementById('periodoNueva').classList.toggle('d-none', !this.checked)">
+                                <label class="form-check-label small" for="recNueva">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Tarea recurrente
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 d-none" id="periodoNueva">
+                            <label class="form-label small fw-semibold">Repetir cada (días)</label>
+                            <input type="number" min="1" name="periodicidad_dias" class="form-control form-control-sm" placeholder="Ej: 7">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

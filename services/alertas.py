@@ -4,7 +4,10 @@ from models.animal import Animal, EstadoAnimal
 from models.reproduccion import Reproduccion
 from models.alimentacion import Alimento, StockMovimiento, TipoMovimientoStock
 from models.alerta import Alerta, TipoAlerta, NivelAlerta
-from services.whatsapp import enviar_whatsapp
+from models.tarea import Tarea
+from models.queseria import LoteQueso
+from models.maquinaria import Maquina, RevisionMaquina
+from services.telegram import enviar_telegram
 from config import get_settings
 import asyncio
 import logging
@@ -59,25 +62,29 @@ def generar_alertas_diarias(db: Session):
 
     for rep in reproducciones_activas:
         dias_para_parto = (rep.fecha_parto_estimada - hoy).days
-        for umbral in settings.ALERTA_PREPARTO_DIAS:
-            if dias_para_parto == umbral:
-                nivel = NivelAlerta.urgente if umbral <= 7 else NivelAlerta.aviso
-                ya_existe = db.query(Alerta).filter(
-                    Alerta.tipo == TipoAlerta.preparto,
-                    Alerta.animal_crotal == rep.animal_crotal,
-                    Alerta.fecha_disparo == hoy,
-                ).first()
-                if not ya_existe:
-                    animal = db.query(Animal).filter(Animal.crotal == rep.animal_crotal).first()
-                    nombre = animal.display_name if animal else rep.animal_crotal
-                    msg = f"PARTO en {dias_para_parto} dias: {nombre} ({rep.animal_crotal}). Fecha estimada: {rep.fecha_parto_estimada}"
-                    alertas_nuevas.append(Alerta(
-                        tipo=TipoAlerta.preparto,
-                        nivel=nivel,
-                        animal_crotal=rep.animal_crotal,
-                        mensaje=msg,
-                        fecha_disparo=hoy,
-                    ))
+        # Umbrales de mayor a menor: si el scheduler se salta un día (p.ej. por un
+        # reinicio del servidor), al día siguiente se recupera el umbral más urgente
+        # todavía pendiente en vez de perder el aviso para siempre.
+        umbrales_desc = sorted(settings.ALERTA_PREPARTO_DIAS, reverse=True)
+        ya_alertados = db.query(Alerta).filter(
+            Alerta.tipo == TipoAlerta.preparto,
+            Alerta.animal_crotal == rep.animal_crotal,
+            Alerta.fecha_disparo >= rep.fecha_cubricion,
+        ).count()
+        if ya_alertados < len(umbrales_desc):
+            umbral_actual = umbrales_desc[ya_alertados]
+            if dias_para_parto <= umbral_actual:
+                nivel = NivelAlerta.urgente if umbral_actual <= 7 else NivelAlerta.aviso
+                animal = db.query(Animal).filter(Animal.crotal == rep.animal_crotal).first()
+                nombre = animal.display_name if animal else rep.animal_crotal
+                msg = f"PARTO en {dias_para_parto} dias: {nombre} ({rep.animal_crotal}). Fecha estimada: {rep.fecha_parto_estimada}"
+                alertas_nuevas.append(Alerta(
+                    tipo=TipoAlerta.preparto,
+                    nivel=nivel,
+                    animal_crotal=rep.animal_crotal,
+                    mensaje=msg,
+                    fecha_disparo=hoy,
+                ))
 
     # --- Vacías sin cubrir > N días ---
     vacas_vacias = db.query(Animal).filter(
@@ -134,18 +141,146 @@ def generar_alertas_diarias(db: Session):
                         fecha_disparo=hoy,
                     ))
 
-    # Guardar alertas y enviar WhatsApp
+    # --- Recordatorio de tareas próximas a vencer (a N días vista) ---
+    tareas_proximas = db.query(Tarea).filter(
+        Tarea.completada == False,
+        Tarea.fecha_limite.isnot(None),
+        Tarea.fecha_limite >= hoy,
+    ).all()
+
+    for t in tareas_proximas:
+        dias_restantes = (t.fecha_limite - hoy).days
+        # Igual que en preparto: recupera el umbral más urgente pendiente si se
+        # saltó algún día, en vez de perder el aviso para siempre.
+        umbrales_desc = sorted(settings.ALERTA_TAREA_DIAS, reverse=True)
+        ya_alertados = db.query(Alerta).filter(
+            Alerta.tipo == TipoAlerta.tarea_proxima,
+            Alerta.tarea_id == t.id,
+        ).count()
+        if ya_alertados < len(umbrales_desc):
+            umbral_actual = umbrales_desc[ya_alertados]
+            if dias_restantes <= umbral_actual:
+                if dias_restantes == 0:
+                    plazo = "vence HOY"
+                elif dias_restantes == 1:
+                    plazo = "vence MAÑANA"
+                else:
+                    plazo = f"vence en {dias_restantes} dias"
+                nivel = NivelAlerta.urgente if t.prioridad == "alta" else NivelAlerta.aviso
+                msg = f"TAREA: {t.titulo} — {plazo}"
+                alertas_nuevas.append(Alerta(
+                    tipo=TipoAlerta.tarea_proxima,
+                    nivel=nivel,
+                    tarea_id=t.id,
+                    mensaje=msg,
+                    fecha_disparo=hoy,
+                ))
+
+    # --- Tareas vencidas (una sola alerta por tarea, al pasar su fecha límite) ---
+    tareas_vencidas = db.query(Tarea).filter(
+        Tarea.completada == False,
+        Tarea.fecha_limite.isnot(None),
+        Tarea.fecha_limite < hoy,
+    ).all()
+
+    for t in tareas_vencidas:
+        ya_existe = db.query(Alerta).filter(
+            Alerta.tipo == TipoAlerta.tarea_vencida,
+            Alerta.tarea_id == t.id,
+        ).first()
+        if not ya_existe:
+            dias_vencida = (hoy - t.fecha_limite).days
+            nivel = NivelAlerta.urgente if t.prioridad == "alta" else NivelAlerta.aviso
+            msg = f"TAREA VENCIDA: {t.titulo} — vencio hace {dias_vencida} dia(s)"
+            alertas_nuevas.append(Alerta(
+                tipo=TipoAlerta.tarea_vencida,
+                nivel=nivel,
+                tarea_id=t.id,
+                mensaje=msg,
+                fecha_disparo=hoy,
+            ))
+
+    # --- Lotes de queso listos para vender (curación cumplida, sin marcar todavía) ---
+    lotes_en_curacion = db.query(LoteQueso).filter(
+        LoteQueso.fecha_listo.is_(None),
+        LoteQueso.dias_curacion_objetivo.isnot(None),
+    ).all()
+
+    for lote in lotes_en_curacion:
+        fecha_estimada = lote.fecha_estimada_lista
+        if fecha_estimada and fecha_estimada <= hoy:
+            ya_existe = db.query(Alerta).filter(
+                Alerta.tipo == TipoAlerta.queso_listo,
+                Alerta.lote_queso_id == lote.id,
+            ).first()
+            if not ya_existe:
+                msg = f"QUESO LISTO: el lote {lote.codigo} ha cumplido su curación — {lote.num_piezas_inicial} piezas"
+                alertas_nuevas.append(Alerta(
+                    tipo=TipoAlerta.queso_listo,
+                    nivel=NivelAlerta.aviso,
+                    lote_queso_id=lote.id,
+                    mensaje=msg,
+                    fecha_disparo=hoy,
+                ))
+
+    # --- Revisiones de maquinaria próximas / vencidas (según la última revisión
+    # con próxima fecha calculada de cada máquina) ---
+    maquinas_activas = db.query(Maquina).filter(Maquina.activa == True).all()
+    for maquina in maquinas_activas:
+        ultima_revision = db.query(RevisionMaquina).filter(
+            RevisionMaquina.maquina_id == maquina.id,
+            RevisionMaquina.proxima_fecha.isnot(None),
+        ).order_by(RevisionMaquina.fecha.desc()).first()
+        if not ultima_revision:
+            continue
+        dias_restantes = (ultima_revision.proxima_fecha - hoy).days
+
+        if dias_restantes < 0:
+            ya_existe = db.query(Alerta).filter(
+                Alerta.tipo == TipoAlerta.revision_vencida,
+                Alerta.maquina_id == maquina.id,
+                Alerta.fecha_disparo >= ultima_revision.fecha,
+            ).first()
+            if not ya_existe:
+                msg = f"REVISION VENCIDA: {maquina.nombre} — vencio hace {-dias_restantes} dia(s)"
+                alertas_nuevas.append(Alerta(
+                    tipo=TipoAlerta.revision_vencida,
+                    nivel=NivelAlerta.urgente,
+                    maquina_id=maquina.id,
+                    mensaje=msg,
+                    fecha_disparo=hoy,
+                ))
+        else:
+            umbrales_desc = sorted(settings.ALERTA_REVISION_DIAS, reverse=True)
+            ya_alertados = db.query(Alerta).filter(
+                Alerta.tipo == TipoAlerta.revision_proxima,
+                Alerta.maquina_id == maquina.id,
+                Alerta.fecha_disparo >= ultima_revision.fecha,
+            ).count()
+            if ya_alertados < len(umbrales_desc):
+                umbral_actual = umbrales_desc[ya_alertados]
+                if dias_restantes <= umbral_actual:
+                    nivel = NivelAlerta.urgente if umbral_actual <= 7 else NivelAlerta.aviso
+                    msg = f"REVISION en {dias_restantes} dias: {maquina.nombre} ({ultima_revision.tipo_revision})"
+                    alertas_nuevas.append(Alerta(
+                        tipo=TipoAlerta.revision_proxima,
+                        nivel=nivel,
+                        maquina_id=maquina.id,
+                        mensaje=msg,
+                        fecha_disparo=hoy,
+                    ))
+
+    # Guardar alertas y enviar Telegram
     for alerta in alertas_nuevas:
         db.add(alerta)
 
     db.commit()
 
-    # Enviar WhatsApp para alertas urgentes
+    # Enviar Telegram para todas las alertas nuevas (urgentes destacadas)
     for alerta in alertas_nuevas:
-        if alerta.nivel == NivelAlerta.urgente:
-            prefijo = "URGENTE" if alerta.nivel == NivelAlerta.urgente else "Aviso"
-            asyncio.run(enviar_whatsapp(f"[GranjaManager] {prefijo}: {alerta.mensaje}"))
-            alerta.enviada_whatsapp = True
+        prefijo = "URGENTE" if alerta.nivel == NivelAlerta.urgente else "Aviso"
+        asyncio.run(enviar_telegram(f"[GranjaManager] {prefijo}: {alerta.mensaje}"))
+        alerta.enviada_telegram = True
 
     if alertas_nuevas:
         db.commit()

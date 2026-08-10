@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+{% block title %}{{ lote.codigo }} — Quesería — GranjaManager{% endblock %}
+{% block content %}
+
+{% set TIPO_LABEL = {'fresco':'Fresco','tierno':'Tierno','semicurado':'Semicurado','curado':'Curado','afuega_el_pitu':"Afuega'l Pitu",'otro':'Otro'} %}
+{% set MOV_LABEL = {'venta':'Venta','obsequio':'Obsequio','merma':'Merma','autoconsumo':'Autoconsumo','ajuste':'Ajuste'} %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/queseria" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0"><i class="bi bi-egg-fried me-2 text-success"></i>{{ lote.codigo }}</h4>
+    {% if resumen.agotado %}
+    <span class="badge bg-secondary">Agotado</span>
+    {% else %}
+    <span class="badge {% if lote.etapa == 'cuajado' %}bg-secondary{% elif lote.etapa == 'moldeado' %}bg-info text-dark{% elif lote.etapa == 'curacion' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+        {{ etapa_label.get(lote.etapa, lote.etapa) }}
+    </span>
+    {% endif %}
+    {% if lote.estanteria or lote.fila or lote.columna %}
+    <span class="badge bg-light text-dark border">
+        <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ lote.estanteria or '—' }}{% if lote.fila %} · F{{ lote.fila }}{% endif %}{% if lote.columna %} · C{{ lote.columna }}{% endif %}
+    </span>
+    {% endif %}
+    <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="modal" data-bs-target="#modalEditarLote" title="Editar datos del lote">
+        <i class="bi bi-pencil"></i>
+    </button>
+    <form method="post" action="/queseria/lote/{{ lote.id }}/eliminar"
+          onsubmit="return confirm('¿Eliminar el lote «{{ lote.codigo }}»? Se eliminará también su historial de ventas.')">
+        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar lote">
+            <i class="bi bi-trash"></i>
+        </button>
+    </form>
+</div>
+
+<div class="row g-3">
+    <!-- Datos del lote -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6 text-muted">Tipo</dt>
+                    <dd class="col-6">{{ TIPO_LABEL.get(lote.tipo_queso, lote.tipo_queso) }}</dd>
+                    <dt class="col-6 text-muted">Elaboración (cuajado)</dt>
+                    <dd class="col-6">{{ lote.fecha_elaboracion.strftime('%d/%m/%Y') }}</dd>
+                    <dt class="col-6 text-muted">Ordeño</dt>
+                    <dd class="col-6">{{ turno_label.get(lote.turno_ordeno, lote.turno_ordeno) if lote.turno_ordeno else '—' }}</dd>
+                    <dt class="col-6 text-muted">Litros de leche</dt>
+                    <dd class="col-6">{{ "%.1f"|format(lote.litros_leche) if lote.litros_leche else '—' }}</dd>
+                    <dt class="col-6 text-muted">Molde / desuerado</dt>
+                    <dd class="col-6">{{ lote.fecha_moldeado.strftime('%d/%m/%Y') if lote.fecha_moldeado else '—' }}</dd>
+                    <dt class="col-6 text-muted">Inicio curación</dt>
+                    <dd class="col-6">{{ lote.fecha_inicio_curacion.strftime('%d/%m/%Y') if lote.fecha_inicio_curacion else '—' }}</dd>
+                    <dt class="col-6 text-muted">Curación prevista</dt>
+                    <dd class="col-6">
+                        {% if lote.dias_curacion_objetivo %}{{ lote.dias_curacion_objetivo }} días{% else %}—{% endif %}
+                        {% if resumen.fecha_estimada_lista %} ({{ resumen.fecha_estimada_lista.strftime('%d/%m/%Y') }}){% endif %}
+                    </dd>
+                    <dt class="col-6 text-muted">Piezas / moldes</dt>
+                    <dd class="col-6">
+                        {% if resumen.piezas_conocido %}{{ lote.num_piezas_inicial }}
+                        {% else %}<span class="text-muted fst-italic">Pendiente de moldear</span>{% endif %}
+                    </dd>
+                    <dt class="col-6 text-muted">Peso</dt>
+                    <dd class="col-6">
+                        {% if resumen.peso_conocido %}{{ "%.2f"|format(lote.peso_inicial_kg) }} kg
+                        {% else %}<span class="text-muted fst-italic">Pendiente de pesaje</span>{% endif %}
+                    </dd>
+                    {% if resumen.peso_conocido %}
+                    <dt class="col-6 text-muted">Disponible ahora</dt>
+                    <dd class="col-6 fw-semibold">{{ resumen.piezas_disponibles }} piezas · {{ "%.2f"|format(resumen.peso_disponible_kg) }} kg</dd>
+                    {% endif %}
+                    <dt class="col-6 text-muted">Listo desde</dt>
+                    <dd class="col-6">{{ lote.fecha_listo.strftime('%d/%m/%Y') if lote.fecha_listo else '—' }}</dd>
+                    <dt class="col-6 text-muted">Ecológico</dt>
+                    <dd class="col-6">{% if lote.es_ecologico %}<i class="bi bi-leaf-fill text-success"></i> Sí{% else %}No{% endif %}</dd>
+                    <dt class="col-6 text-muted">Ubicación</dt>
+                    <dd class="col-6">
+                        {% if lote.estanteria or lote.fila or lote.columna %}
+                        <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ lote.estanteria or '—' }}{% if lote.fila %} · Fila {{ lote.fila }}{% endif %}{% if lote.columna %} · Col {{ lote.columna }}{% endif %}
+                        {% else %}<span class="text-muted fst-italic">Sin ubicar</span>{% endif %}
+                    </dd>
+                </dl>
+                {% if lote.observaciones %}
+                <hr class="my-2">
+                <p class="small text-muted mb-0">{{ lote.observaciones }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Cuajo: trazabilidad sanitaria -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <strong class="small"><i class="bi bi-droplet-half text-primary me-1"></i>Cuajo empleado</strong>
+                <button class="btn btn-xs btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCuajo">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </div>
+            <div class="card-body py-2">
+                {% if lote.cuajo_marca or lote.cuajo_registro_sanitario or lote.cuajo_lote or lote.cuajo_caducidad %}
+                <dl class="row mb-0 small">
+                    <dt class="col-6 text-muted">Marca</dt>
+                    <dd class="col-6">{{ lote.cuajo_marca or '—' }}</dd>
+                    <dt class="col-6 text-muted">Registro sanitario</dt>
+                    <dd class="col-6">{{ lote.cuajo_registro_sanitario or '—' }}</dd>
+                    <dt class="col-6 text-muted">Lote del cuajo</dt>
+                    <dd class="col-6">{{ lote.cuajo_lote or '—' }}</dd>
+                    <dt class="col-6 text-muted">Caducidad</dt>
+                    <dd class="col-6">
+                        {{ lote.cuajo_caducidad.strftime('%d/%m/%Y') if lote.cuajo_caducidad else '—' }}
+                        {% if lote.cuajo_caducidad and lote.cuajo_caducidad < lote.fecha_elaboracion %}
+                        <span class="badge bg-danger ms-1" title="El cuajo estaba caducado en la fecha de elaboración">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </span>
+                        {% endif %}
+                    </dd>
+                </dl>
+                {% else %}
+                <p class="small text-muted mb-0">Sin datos del cuajo registrados todavía.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Acciones de etapa -->
+        {% if lote.etapa == 'cuajado' %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2">
+                <form method="post" action="/queseria/lote/{{ lote.id }}/moldeado">
+                    <input type="hidden" name="fecha_moldeado" value="{{ hoy.isoformat() }}">
+                    <label class="form-label small fw-semibold mb-1">Piezas / moldes obtenidos <span class="text-danger">*</span></label>
+                    <div class="d-flex gap-2">
+                        <input type="number" min="1" name="num_piezas_inicial" class="form-control form-control-sm"
+                               value="{{ lote.num_piezas_inicial or '' }}" required>
+                        <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Pasar a molde
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% elif lote.etapa == 'moldeado' %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2">
+                <form method="post" action="/queseria/lote/{{ lote.id }}/iniciar-curacion" class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">Días de curación previstos</label>
+                    <div class="d-flex gap-2">
+                        <input type="number" min="0" name="dias_curacion_objetivo" class="form-control form-control-sm"
+                               value="{{ lote.dias_curacion_objetivo or '' }}" placeholder="Ej: 60">
+                        <button type="submit" class="btn btn-outline-warning btn-sm text-nowrap">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Iniciar curación
+                        </button>
+                    </div>
+                </form>
+                <button class="btn btn-outline-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalListo">
+                    <i class="bi bi-check-lg me-1"></i>Marcar listo (sin curar)
+                </button>
+            </div>
+        </div>
+        {% elif lote.etapa == 'curacion' %}
+        <button class="btn btn-success btn-sm w-100 mb-3" data-bs-toggle="modal" data-bs-target="#modalListo">
+            <i class="bi bi-check-lg me-1"></i>Marcar listo para vender (pesar)
+        </button>
+        {% endif %}
+
+        <!-- Trazabilidad: vacas de origen -->
+        <div class="card shadow-sm">
+            <div class="card-header py-2 bg-success bg-opacity-10">
+                <strong class="small"><i class="bi bi-diagram-3-fill text-success me-1"></i>Origen de la leche</strong>
+            </div>
+            <div class="card-body py-2">
+                {% if animales_origen %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for a in animales_origen %}
+                    <a href="/animales/{{ a.crotal }}" class="btn btn-xs btn-outline-secondary d-flex align-items-center gap-1 py-1">
+                        {% set fu = foto_url(a.crotal) %}
+                        {% if fu %}
+                        <img src="{{ fu }}" alt="" style="width:20px; height:20px; object-fit:cover;" class="rounded-circle">
+                        {% endif %}
+                        {{ a.display_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="small text-muted mb-0">Sin vacas de origen registradas.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- QR de trazabilidad pública -->
+        {% if lote.etapa == 'listo' %}
+        <div class="card shadow-sm mt-3">
+            <div class="card-header py-2 bg-success bg-opacity-10">
+                <strong class="small"><i class="bi bi-qr-code text-success me-1"></i>Etiqueta de trazabilidad</strong>
+            </div>
+            <div class="card-body py-3 text-center">
+                <img src="/queseria/lote/{{ lote.id }}/qr.png" alt="QR de trazabilidad" width="150" height="150" class="border rounded p-1 mb-2">
+                <p class="small text-muted mb-2">El comprador escanea el QR y ve el origen, fecha de elaboración y curación de esta pieza.</p>
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    <a href="/trazabilidad/{{ lote.codigo }}" target="_blank" class="btn btn-xs btn-outline-success">
+                        <i class="bi bi-eye me-1"></i>Ver ficha
+                    </a>
+                    <a href="/queseria/lote/{{ lote.id }}/qr.png" download="qr-{{ lote.codigo }}.png" class="btn btn-xs btn-outline-secondary">
+                        <i class="bi bi-download me-1"></i>Descargar QR
+                    </a>
+                    <a href="/queseria/lote/{{ lote.id }}/etiqueta" target="_blank" class="btn btn-xs btn-outline-primary">
+                        <i class="bi bi-printer me-1"></i>Imprimir etiquetas
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Movimientos -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <strong class="small">Ventas y mermas</strong>
+                {% if resumen.peso_conocido and not resumen.agotado %}
+                <button class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalMovimiento">
+                    <i class="bi bi-plus-lg me-1"></i>Registrar
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if not resumen.peso_conocido %}
+                <div class="text-center text-muted py-4 small">
+                    Todavía no se conoce el peso final del lote — márcalo como "listo" para poder registrar ventas.
+                </div>
+                {% elif movimientos %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Piezas</th>
+                                <th class="text-end">Peso</th>
+                                <th>Destino</th>
+                                <th class="text-end">Importe</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in movimientos %}
+                            <tr>
+                                <td class="text-muted">{{ m.fecha.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <span class="badge {% if m.tipo == 'venta' %}bg-success{% elif m.tipo == 'obsequio' %}bg-info text-dark{% elif m.tipo == 'merma' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-75">
+                                        {{ MOV_LABEL.get(m.tipo, m.tipo) }}
+                                    </span>
+                                </td>
+                                <td class="text-end">{{ m.num_piezas or '—' }}</td>
+                                <td class="text-end">{{ "%.2f"|format(m.peso_kg) }} kg</td>
+                                <td class="text-muted">{{ m.cliente or '—' }}</td>
+                                <td class="text-end {% if m.precio_total %}fw-semibold text-success{% endif %}">
+                                    {{ "%.0f €"|format(m.precio_total) if m.precio_total else '—' }}
+                                </td>
+                                <td>
+                                    <form method="post" action="/queseria/movimiento/{{ m.id }}/eliminar"
+                                          onsubmit="return confirm('¿Eliminar este movimiento?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin ventas ni mermas registradas todavía</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: editar lote -->
+<div class="modal fade" id="modalEditarLote" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-pencil me-2 text-success"></i>Editar {{ lote.codigo }}</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/queseria/lote/{{ lote.id }}/editar">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Fecha elaboración <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_elaboracion" class="form-control form-control-sm"
+                                   value="{{ lote.fecha_elaboracion.isoformat() }}" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Ordeño <span class="text-danger">*</span></label>
+                            <select name="turno_ordeno" class="form-select form-select-sm" required>
+                                <option value="manana" {% if lote.turno_ordeno == 'manana' %}selected{% endif %}>Mañana</option>
+                                <option value="tarde" {% if lote.turno_ordeno == 'tarde' %}selected{% endif %}>Tarde</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Litros de leche</label>
+                            <input type="number" step="0.1" min="0" name="litros_leche" class="form-control form-control-sm"
+                                   value="{{ lote.litros_leche or '' }}">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Tipo de queso</label>
+                            <select name="tipo_queso" class="form-select form-select-sm">
+                                {% for t in tipos_queso %}
+                                <option value="{{ t.value }}" {% if lote.tipo_queso == t.value %}selected{% endif %}>
+                                    {{ TIPO_LABEL.get(t.value, t.value) }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <label class="form-label small fw-semibold mb-1"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>Ubicación en cámara</label>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Estantería</label>
+                            <select name="estanteria" class="form-select form-select-sm">
+                                <option value="">— Sin asignar —</option>
+                                {% for e in estanterias %}
+                                <option value="{{ e.nombre }}" {% if lote.estanteria == e.nombre %}selected{% endif %}>{{ e.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if not estanterias %}
+                            <div class="form-text">
+                                <a href="/queseria" class="text-decoration-none">Define estanterías en Quesería</a> para elegirlas aquí.
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Fila</label>
+                            <input type="number" min="1" name="fila" class="form-control form-control-sm" value="{{ lote.fila or '' }}">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Columna</label>
+                            <input type="number" min="1" name="columna" class="form-control form-control-sm" value="{{ lote.columna or '' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <label class="form-label small fw-semibold">Vacas de origen (trazabilidad de la leche)</label>
+                            <div class="border rounded p-2" style="max-height:160px; overflow-y:auto;">
+                                {% if vacas %}
+                                {% for v in vacas %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="animales_crotales"
+                                           value="{{ v.crotal }}" id="editVaca{{ v.crotal }}"
+                                           {% if v.crotal in crotales_lote %}checked{% endif %}>
+                                    <label class="form-check-label small" for="editVaca{{ v.crotal }}">
+                                        {{ v.display_name }} ({{ v.crotal }})
+                                        <span class="badge bg-light text-dark border">{{ v.estado | capitalize }}</span>
+                                        {% if v.crotal in crotales_en_espera %}
+                                        <span class="badge bg-danger" title="Tiene un tratamiento con tiempo de espera activo">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> En espera veterinaria
+                                        </span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <div class="text-muted small">Sin vacas registradas.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="es_ecologico" value="1" id="editEcoQueso" {% if lote.es_ecologico %}checked{% endif %}>
+                                <label class="form-check-label small" for="editEcoQueso">
+                                    <i class="bi bi-leaf-fill text-success me-1"></i>Producto ecológico
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ lote.observaciones or '' }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: cuajo empleado -->
+<div class="modal fade" id="modalCuajo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-droplet-half me-2 text-primary"></i>Cuajo empleado</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/queseria/lote/{{ lote.id }}/cuajo">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Producto</label>
+                            <select name="cuajo_producto_id" id="selectCuajoProductoEdit" class="form-select form-select-sm"
+                                    onchange="rellenarCuajoEdit(this)">
+                                <option value="">— Sin asignar —</option>
+                                {% for p in cuajo_productos %}
+                                <option value="{{ p.id }}"
+                                        data-lote="{{ p.lote_actual or '' }}"
+                                        data-caducidad="{{ p.caducidad_actual.isoformat() if p.caducidad_actual else '' }}"
+                                        {% if lote.cuajo_marca == p.marca %}selected{% endif %}>
+                                    {{ p.marca }}{% if p.registro_sanitario %} ({{ p.registro_sanitario }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Lote del cuajo (frasco)</label>
+                            <input type="text" name="cuajo_lote" id="inputCuajoLoteEdit" class="form-control form-control-sm" value="{{ lote.cuajo_lote or '' }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Caducidad</label>
+                            <input type="date" name="cuajo_caducidad" id="inputCuajoCaducidadEdit" class="form-control form-control-sm"
+                                   value="{{ lote.cuajo_caducidad.isoformat() if lote.cuajo_caducidad else '' }}">
+                        </div>
+                    </div>
+                </div>
+                <script>
+                function rellenarCuajoEdit(select) {
+                    var opt = select.options[select.selectedIndex];
+                    document.getElementById('inputCuajoLoteEdit').value = opt.getAttribute('data-lote') || '';
+                    document.getElementById('inputCuajoCaducidadEdit').value = opt.getAttribute('data-caducidad') || '';
+                }
+                </script>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: marcar listo (pesar) -->
+{% if lote.etapa in ['moldeado', 'curacion'] %}
+<div class="modal fade" id="modalListo" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-speedometer2 me-2 text-success"></i>Registrar peso final</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/queseria/lote/{{ lote.id }}/listo">
+                <input type="hidden" name="fecha_listo" value="{{ hoy.isoformat() }}">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Peso total (kg) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0.01" name="peso_inicial_kg" class="form-control form-control-sm" required autofocus>
+                    </div>
+                    <div class="form-text">{{ lote.num_piezas_inicial }} piezas — el lote quedará disponible para vender.</div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar y marcar listo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: nuevo movimiento -->
+<div class="modal fade" id="modalMovimiento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-cash-coin me-2 text-success"></i>Registrar salida de queso</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/queseria/lote/{{ lote.id }}/movimiento/nuevo">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Tipo <span class="text-danger">*</span></label>
+                            <select name="tipo" class="form-select form-select-sm" id="tipoMov" onchange="toggleVentaCampos()">
+                                <option value="venta">Venta</option>
+                                <option value="obsequio">Obsequio</option>
+                                <option value="merma">Merma</option>
+                                <option value="autoconsumo">Autoconsumo</option>
+                                <option value="ajuste">Ajuste</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Piezas</label>
+                            <input type="number" id="inputPiezasMov" min="0" name="num_piezas" class="form-control form-control-sm"
+                                   max="{{ resumen.piezas_disponibles }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Peso (kg) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" id="inputPesoMov" min="0.01" name="peso_kg" class="form-control form-control-sm"
+                                   max="{{ resumen.peso_disponible_kg }}" required>
+                            <div class="form-text">Disponible: {{ "%.2f"|format(resumen.peso_disponible_kg) }} kg</div>
+                        </div>
+                        <div class="col-12" id="avisoAjuste" style="display:none">
+                            <div class="alert alert-info py-1 px-2 small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>Ajuste: usa un número <strong>negativo</strong> para añadir stock
+                                (p.ej. -0.5 kg si contasteis mal y hay más queso del registrado).
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Destino</label>
+                            <input type="text" name="cliente" class="form-control form-control-sm" placeholder="A quién o dónde va — cliente, familiar, feria...">
+                        </div>
+                        <div class="col-6" id="campoPrecio">
+                            <label class="form-label small fw-semibold">Importe total (€)</label>
+                            <input type="number" step="0.01" min="0" name="precio_total" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Nº Factura</label>
+                            <input type="text" name="num_factura" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleVentaCampos() {
+    var tipo = document.getElementById('tipoMov').value;
+    var esVenta = tipo === 'venta';
+    var esAjuste = tipo === 'ajuste';
+    document.getElementById('campoPrecio').style.display = esVenta ? 'block' : 'none';
+    document.getElementById('avisoAjuste').style.display = esAjuste ? 'block' : 'none';
+    document.getElementById('inputPesoMov').min = esAjuste ? '-9999' : '0.01';
+    document.getElementById('inputPiezasMov').min = esAjuste ? '-9999' : '0';
+}
+document.addEventListener('DOMContentLoaded', toggleVentaCampos);
+</script>
+{% endblock %}

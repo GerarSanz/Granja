@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
 from models.maestros import Especie, Raza
-from models.usuario import Usuario
+from models.usuario import Usuario, RolUsuario
 
 router = APIRouter(prefix="/maestros", tags=["maestros"])
 templates = Jinja2Templates(directory="templates")
@@ -34,6 +34,8 @@ def nueva_especie(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403, detail="Solo administradores")
     if not db.query(Especie).filter(Especie.nombre == nombre.strip()).first():
         db.add(Especie(nombre=nombre.strip(), codigo=codigo.strip() or None))
         db.commit()
@@ -46,6 +48,8 @@ def eliminar_especie(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403, detail="Solo administradores")
     e = db.query(Especie).filter(Especie.id == especie_id).first()
     if e and not e.razas:
         db.delete(e)
@@ -60,6 +64,8 @@ def nueva_raza(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403, detail="Solo administradores")
     db.add(Raza(nombre=nombre.strip(), especie_id=especie_id))
     db.commit()
     return RedirectResponse(url="/maestros", status_code=302)
@@ -71,6 +77,8 @@ def eliminar_raza(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403, detail="Solo administradores")
     r = db.query(Raza).filter(Raza.id == raza_id).first()
     if r:
         db.delete(r)

@@ -7,6 +7,12 @@
     <button class="btn btn-sm btn-outline-primary ms-auto" data-bs-toggle="modal" data-bs-target="#modalEditar">
         <i class="bi bi-pencil"></i> Editar
     </button>
+    <form method="post" action="/lotes/parcela/{{ parcela.id }}/eliminar"
+          onsubmit="return confirm('¿Eliminar la parcela «{{ parcela.nombre }}»? Se eliminará todo su historial de ocupaciones, abonos y tratamientos.')">
+        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar parcela">
+            <i class="bi bi-trash"></i>
+        </button>
+    </form>
 </div>
 
 <div class="row g-3">
@@ -17,10 +23,32 @@
                 <dl class="row mb-0 small">
                     <dt class="col-6 text-muted">Superficie</dt>
                     <dd class="col-6">{{ "%.2f"|format(parcela.hectareas) }} ha</dd>
+                    <dt class="col-6 text-muted">Uso</dt>
+                    <dd class="col-6">
+                        {% if parcela.especie_cultivo %}
+                        <span class="badge bg-light text-dark border">{{ parcela.especie_cultivo }}</span>
+                        {% if parcela.variedad_cultivo %}<div class="text-muted" style="font-size:.7rem;">{{ parcela.variedad_cultivo }}</div>{% endif %}
+                        {% else %}
+                        <span class="text-muted">Sin especificar</span>
+                        {% endif %}
+                    </dd>
                     <dt class="col-6 text-muted">Municipio</dt>
                     <dd class="col-6">{{ parcela.municipio or '—' }}</dd>
                     <dt class="col-6 text-muted">Ref. catastral</dt>
                     <dd class="col-6 text-break">{{ parcela.referencia_catastral or '—' }}</dd>
+                    <dt class="col-6 text-muted">Densidad ganadera</dt>
+                    <dd class="col-6">
+                        {% if densidad_actual is not none %}
+                        <span class="badge {% if densidad_actual > 1.8 %}bg-danger{% elif densidad_actual > 1.4 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                            {{ "%.2f"|format(densidad_actual) }} UGM/ha
+                        </span>
+                        <div class="text-muted" style="font-size:.7rem;">
+                            {{ n_animales_ocupantes }} animales · {{ "%.2f"|format(ugm_actual) }} UGM
+                        </div>
+                        {% else %}
+                        <span class="text-muted">— (sin ocupación)</span>
+                        {% endif %}
+                    </dd>
                 </dl>
             </div>
         </div>
@@ -376,7 +404,7 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Producto / descripción</label>
-                            <input type="text" name="producto" class="form-control form-control-sm"
+                            <input type="text" name="producto" class="form-control form-control-sm" list="listaProductosAbono"
                                    placeholder="Ej: Estiércol vacuno, Nitrato amónico 27%…">
                         </div>
                         <div class="col-4">
@@ -405,6 +433,23 @@
                                     <i class="bi bi-leaf-fill text-success me-1"></i>Producto / práctica ecológica
                                 </label>
                             </div>
+                        </div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Datos para el Cuaderno de Explotación</small></div>
+                        <div class="col-4">
+                            <label class="form-label small">Nº Albarán</label>
+                            <input type="text" name="albaran" class="form-control form-control-sm" placeholder="Opcional">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Riqueza N/P/K</label>
+                            <input type="text" name="riqueza_npk" class="form-control form-control-sm" placeholder="Ej: 8-15-15">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Tipo fertilización</label>
+                            <select name="tipo_fertilizacion" class="form-select form-select-sm">
+                                <option value="AF" selected>AF — Fondo</option>
+                                <option value="AC">AC — Cobertera</option>
+                                <option value="F">F — Fertirrigación</option>
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label small">Observaciones</label>
@@ -450,12 +495,12 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Producto <span class="text-danger">*</span></label>
-                            <input type="text" name="producto" class="form-control form-control-sm" required
+                            <input type="text" name="producto" class="form-control form-control-sm" list="listaProductosTrat" required
                                    placeholder="Ej: Sulfato de cobre, Caldo bordelés…">
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Dosis</label>
-                            <input type="text" name="dosis" class="form-control form-control-sm"
+                            <input type="text" name="dosis" class="form-control form-control-sm" list="listaDosisTrat"
                                    placeholder="Ej: 2 kg/ha">
                         </div>
                         <div class="col-6">
@@ -476,6 +521,31 @@
                                     <i class="bi bi-leaf-fill text-success me-1"></i>Producto ecológico
                                 </label>
                             </div>
+                        </div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Datos para el Cuaderno de Explotación</small></div>
+                        <div class="col-8">
+                            <label class="form-label small">Problema fitosanitario / Plaga</label>
+                            <input type="text" name="problema_fitosanitario" class="form-control form-control-sm"
+                                   placeholder="Ej: Hierba anual, Oidio, Pulgón…">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small">Eficacia</label>
+                            <select name="eficacia" class="form-select form-select-sm">
+                                <option value="">— N/D —</option>
+                                <option value="buena">Buena</option>
+                                <option value="regular">Regular</option>
+                                <option value="mala">Mala</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Nº Registro producto (MAPA)</label>
+                            <input type="text" name="num_registro_fito" class="form-control form-control-sm"
+                                   placeholder="Ej: ES-00123">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Aplicador</label>
+                            <input type="text" name="aplicador_nombre" class="form-control form-control-sm"
+                                   placeholder="Nombre o nº de orden">
                         </div>
                         <div class="col-12">
                             <label class="form-label small">Observaciones</label>
@@ -656,6 +726,35 @@
                                 <a href="https://sigpac.mapama.gob.es/fega/visor/" target="_blank">SIGPAC visor</a>
                                 (Asturias = provincia 33).
                             </small>
+                        </div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Uso agrícola (Cuaderno de Explotación)</small></div>
+                        <div class="col-6">
+                            <label class="form-label small">Uso / Cultivo</label>
+                            <input type="text" name="especie_cultivo" class="form-control form-control-sm" list="listaUsosParcela"
+                                   value="{{ parcela.especie_cultivo or '' }}" placeholder="Pradera, Manzanos…">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Variedad</label>
+                            <input type="text" name="variedad_cultivo" class="form-control form-control-sm"
+                                   value="{{ parcela.variedad_cultivo or '' }}" placeholder="—">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Riego</label>
+                            <select name="regadio" class="form-select form-select-sm">
+                                <option value="SEC" {% if not parcela.regadio or parcela.regadio == 'SEC' %}selected{% endif %}>SEC — Secano</option>
+                                <option value="ASP" {% if parcela.regadio == 'ASP' %}selected{% endif %}>ASP — Aspersión</option>
+                                <option value="LOC" {% if parcela.regadio == 'LOC' %}selected{% endif %}>LOC — Goteo/localizado</option>
+                                <option value="GRA" {% if parcela.regadio == 'GRA' %}selected{% endif %}>GRA — Gravedad</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Protección</label>
+                            <select name="tipo_proteccion" class="form-select form-select-sm">
+                                <option value="AL" {% if not parcela.tipo_proteccion or parcela.tipo_proteccion == 'AL' %}selected{% endif %}>AL — Aire libre</option>
+                                <option value="M" {% if parcela.tipo_proteccion == 'M' %}selected{% endif %}>M — Malla</option>
+                                <option value="BP" {% if parcela.tipo_proteccion == 'BP' %}selected{% endif %}>BP — Plástico</option>
+                                <option value="INV" {% if parcela.tipo_proteccion == 'INV' %}selected{% endif %}>INV — Invernadero</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -887,4 +986,18 @@ document.head.appendChild(style);
 
 cargarSubparcelas();
 </script>
+
+<datalist id="listaProductosAbono">
+    {% for p in productos_abono_usados %}<option value="{{ p }}">{% endfor %}
+</datalist>
+<datalist id="listaProductosTrat">
+    {% for p in productos_trat_usados %}<option value="{{ p }}">{% endfor %}
+</datalist>
+<datalist id="listaDosisTrat">
+    {% for d in dosis_trat_usadas %}<option value="{{ d }}">{% endfor %}
+</datalist>
+<datalist id="listaUsosParcela">
+    {% for u in usos_disponibles %}<option value="{{ u }}">{% endfor %}
+</datalist>
+
 {% endblock %}

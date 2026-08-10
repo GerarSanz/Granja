@@ -18,6 +18,7 @@
 <div class="row g-3 mb-3">
     {% for lote in lotes %}
     {% set n_animales = conteo_lotes.get(lote.id, 0) %}
+    {% set ugm_lote = ugm_lotes.get(lote.id, 0) %}
     {% set ocupacion = ocupaciones_activas | selectattr('lote_id', 'equalto', lote.id) | first %}
     {% set toro_asignado = toros_activos | selectattr('lote_id', 'equalto', lote.id) | first %}
     <div class="col-12 col-md-6 col-lg-4">
@@ -37,6 +38,13 @@
                             desde {{ ocupacion.fecha_entrada.strftime('%d/%m/%Y') }}
                             (día {{ (hoy - ocupacion.fecha_entrada).days }})
                         </div>
+                        {% if n_animales > 0 and ocupacion.parcela.hectareas %}
+                        <div style="font-size:.75rem;">
+                            <span class="badge {% if (ugm_lote / ocupacion.parcela.hectareas) > 1.8 %}bg-danger{% elif (ugm_lote / ocupacion.parcela.hectareas) > 1.4 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                                {{ "%.2f"|format(ugm_lote / ocupacion.parcela.hectareas) }} UGM/ha
+                            </span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}
@@ -144,14 +152,18 @@
                     <tr>
                         <th>Nombre</th>
                         <th class="text-end">Hectáreas</th>
+                        <th>Uso</th>
                         <th class="d-none d-md-table-cell">Ref. catastral</th>
                         <th class="d-none d-md-table-cell">Municipio</th>
                         <th>Ocupación actual</th>
+                        <th class="text-end">UGM/ha</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in parcelas %}
                     {% set oc = ocupaciones_activas | selectattr('parcela_id', 'equalto', p.id) | first %}
+                    {% set densidad = densidad_parcelas.get(p.id) %}
                     <tr>
                         <td class="fw-semibold">
                             <a href="/lotes/parcela/{{ p.id }}" class="text-decoration-none">
@@ -162,6 +174,14 @@
                             </a>
                         </td>
                         <td class="text-end">{{ "%.1f"|format(p.hectareas) }}</td>
+                        <td>
+                            {% if p.especie_cultivo %}
+                            <span class="badge bg-light text-dark border">{{ p.especie_cultivo }}</span>
+                            {% if p.variedad_cultivo %}<br><small class="text-muted">{{ p.variedad_cultivo }}</small>{% endif %}
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
                         <td class="d-none d-md-table-cell text-muted">{{ p.referencia_catastral or '—' }}</td>
                         <td class="d-none d-md-table-cell text-muted">{{ p.municipio or '—' }}</td>
                         <td>
@@ -170,6 +190,23 @@
                             {% else %}
                             <span class="text-muted">Libre</span>
                             {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if densidad is not none %}
+                            <span class="badge {% if densidad > 1.8 %}bg-danger{% elif densidad > 1.4 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                                {{ "%.2f"|format(densidad) }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="/lotes/parcela/{{ p.id }}/eliminar"
+                                  onsubmit="return confirm('¿Eliminar la parcela «{{ p.nombre }}»? Se eliminará todo su historial.')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar parcela">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -231,6 +268,15 @@
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Municipio (nombre)</label>
                             <input type="text" name="municipio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label small fw-semibold">Uso</label>
+                            <input type="text" name="especie_cultivo" class="form-control form-control-sm" list="listaUsosParcela"
+                                   placeholder="Ej: Pradera, Manzanos…">
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small fw-semibold">Variedad</label>
+                            <input type="text" name="variedad_cultivo" class="form-control form-control-sm" placeholder="Opcional">
                         </div>
                         <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Referencia SIGPAC <span class="fw-normal">(opcional, para ver en mapa)</span></small></div>
                         <div class="col-3">
@@ -328,6 +374,10 @@
         </div>
     </div>
 </div>
+
+<datalist id="listaUsosParcela">
+    {% for u in usos_disponibles %}<option value="{{ u }}">{% endfor %}
+</datalist>
 
 <script>
 function setLoteOcupacion(id, nombre) {

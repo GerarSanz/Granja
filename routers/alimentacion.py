@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -9,8 +9,11 @@ from models.alimentacion import (
     Alimento, StockMovimiento, CompraAlimento, RacionTipo,
     TipoAlimento, TipoMovimientoStock, EstadoProductivo
 )
+from models.animal import Animal
+from models.maestros import Especie
 from models.usuario import Usuario
-from services.stock_calculator import resumen_stock, consumo_total_diario
+from services.stock_calculator import resumen_stock, consumo_total_diario, stock_actual
+from services.especies import estados_labels_racion
 
 router = APIRouter(prefix="/alimentacion", tags=["alimentacion"])
 templates = Jinja2Templates(directory="templates")
@@ -26,12 +29,25 @@ def dashboard_alimentacion(
     consumo_diario = consumo_total_diario(db)
     alimentos = db.query(Alimento).filter(Alimento.activo == True).all()
     raciones = db.query(RacionTipo).all()
+
+    especies_presentes = (
+        db.query(Especie)
+        .join(Animal, Animal.especie_id == Especie.id)
+        .filter(Animal.fecha_baja.is_(None))
+        .distinct()
+        .all()
+    )
+    especies_presentes = sorted(especies_presentes, key=lambda e: (e.nombre != "Bovino", e.nombre))
+    estados_labels_por_especie = {e.nombre: estados_labels_racion(e.nombre) for e in especies_presentes}
+
     return templates.TemplateResponse("alimentacion/dashboard.html", {
         "request": request,
         "stocks": stocks,
         "consumo_diario": consumo_diario,
         "alimentos": alimentos,
         "raciones": raciones,
+        "especies_presentes": especies_presentes,
+        "estados_labels_por_especie": estados_labels_por_especie,
         "estados_productivos": EstadoProductivo,
         "current_user": current_user,
     })
@@ -55,7 +71,7 @@ def registrar_entrada_stock(
     )
     db.add(mov)
     db.commit()
-    return RedirectResponse(url="/alimentacion", status_code=302)
+    return RedirectResponse(url="/alimentacion?guardado=1", status_code=302)
 
 
 @router.post("/stock/consumo")
@@ -68,6 +84,9 @@ def registrar_consumo(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    disponible = stock_actual(db, alimento_id)
+    if cantidad_kg > disponible + 0.001:
+        raise HTTPException(status_code=400, detail=f"Solo quedan {disponible:.0f} kg disponibles de este alimento")
     mov = StockMovimiento(
         alimento_id=alimento_id,
         fecha=date.fromisoformat(fecha),
@@ -78,7 +97,7 @@ def registrar_consumo(
     )
     db.add(mov)
     db.commit()
-    return RedirectResponse(url="/alimentacion", status_code=302)
+    return RedirectResponse(url="/alimentacion?guardado=1", status_code=302)
 
 
 @router.post("/compra")
@@ -114,7 +133,7 @@ def registrar_compra(
     )
     db.add(mov)
     db.commit()
-    return RedirectResponse(url="/alimentacion", status_code=302)
+    return RedirectResponse(url="/alimentacion?guardado=1", status_code=302)
 
 
 @router.post("/alimento/nuevo")
@@ -132,13 +151,14 @@ def crear_alimento(
     )
     db.add(alimento)
     db.commit()
-    return RedirectResponse(url="/alimentacion", status_code=302)
+    return RedirectResponse(url="/alimentacion?guardado=1", status_code=302)
 
 
 @router.post("/racion")
 def guardar_racion(
     estado_productivo: str = Form(...),
     alimento_id: int = Form(...),
+    especie_id: int = Form(...),
     kg_por_animal_dia: float = Form(...),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -146,6 +166,7 @@ def guardar_racion(
     racion = db.query(RacionTipo).filter(
         RacionTipo.estado_productivo == estado_productivo,
         RacionTipo.alimento_id == alimento_id,
+        RacionTipo.especie_id == especie_id,
     ).first()
     if racion:
         racion.kg_por_animal_dia = kg_por_animal_dia
@@ -153,8 +174,9 @@ def guardar_racion(
         racion = RacionTipo(
             estado_productivo=estado_productivo,
             alimento_id=alimento_id,
+            especie_id=especie_id,
             kg_por_animal_dia=kg_por_animal_dia,
         )
         db.add(racion)
     db.commit()
-    return RedirectResponse(url="/alimentacion", status_code=302)
+    return RedirectResponse(url="/alimentacion?guardado=1", status_code=302)

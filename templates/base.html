@@ -11,6 +11,14 @@
 </head>
 <body>
 
+{% if request.state.demo_mode %}
+<div class="text-center py-1 small text-white" style="background:#6f42c1;">
+    <i class="bi bi-eye-fill me-1"></i>
+    Estás en la <strong>demo</strong> de GranjaManager — los datos se reinician cada noche.
+    Usuario de prueba: <code class="text-white">demo</code> / <code class="text-white">demo1234</code>
+</div>
+{% endif %}
+
 <nav class="navbar navbar-dark bg-success navbar-expand-lg sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="/">
@@ -46,33 +54,87 @@
                         <i class="bi bi-map"></i> Lotes
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if '/tareas' in request.url.path %}active{% endif %}" href="/tareas">
+                        <i class="bi bi-check2-square"></i> Tareas
+                        {% if n_tareas_pendientes is defined and n_tareas_pendientes > 0 %}
+                        <span class="badge bg-warning text-dark rounded-pill ms-1">{{ n_tareas_pendientes }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                {% if 'queseria' in request.state.modulos %}
+                <li class="nav-item">
+                    <a class="nav-link {% if '/queseria' in request.url.path %}active{% endif %}" href="/queseria">
+                        <i class="bi bi-egg-fried"></i> Quesería
+                    </a>
+                </li>
+                {% endif %}
+                {% if 'agroturismo' in request.state.modulos %}
+                <li class="nav-item">
+                    <a class="nav-link {% if '/agroturismo' in request.url.path %}active{% endif %}" href="/agroturismo">
+                        <i class="bi bi-house-heart"></i> Agroturismo
+                    </a>
+                </li>
+                {% endif %}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if '/alimentacion' in request.url.path or '/economia' in request.url.path or '/exportacion' in request.url.path or '/maestros' in request.url.path %}active{% endif %}"
+                    <a class="nav-link dropdown-toggle {% if '/alimentacion' in request.url.path or '/economia' in request.url.path or '/presupuesto' in request.url.path or '/exportacion' in request.url.path or '/maestros' in request.url.path or '/cuaderno' in request.url.path or '/analisis-leche' in request.url.path or '/maquinaria' in request.url.path %}active{% endif %}"
                        href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-grid"></i> Más
                     </a>
                     <ul class="dropdown-menu">
+                        {% if 'alimentacion' in request.state.modulos %}
                         <li>
                             <a class="dropdown-item {% if '/alimentacion' in request.url.path %}active{% endif %}" href="/alimentacion">
                                 <i class="bi bi-basket3 me-2 text-success"></i>Alimentación
                             </a>
                         </li>
+                        {% endif %}
+                        {% if 'analisis_leche' in request.state.modulos %}
+                        <li>
+                            <a class="dropdown-item {% if '/analisis-leche' in request.url.path %}active{% endif %}" href="/analisis-leche">
+                                <i class="bi bi-droplet-half me-2 text-info"></i>Análisis de leche
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if 'maquinaria' in request.state.modulos %}
+                        <li>
+                            <a class="dropdown-item {% if '/maquinaria' in request.url.path %}active{% endif %}" href="/maquinaria">
+                                <i class="bi bi-tools me-2 text-secondary"></i>Maquinaria
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if 'economia' in request.state.modulos %}
                         <li>
                             <a class="dropdown-item {% if '/economia' in request.url.path %}active{% endif %}" href="/economia">
                                 <i class="bi bi-cash-stack me-2 text-warning"></i>Economía
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item {% if '/presupuesto' in request.url.path %}active{% endif %}" href="/presupuesto">
+                                <i class="bi bi-piggy-bank me-2 text-success"></i>Presupuesto anual
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if 'cuaderno' in request.state.modulos %}
                         <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item {% if '/cuaderno' in request.url.path %}active{% endif %}" href="/cuaderno">
+                                <i class="bi bi-journal-text me-2 text-success"></i>Cuaderno Explotación
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item {% if '/exportacion' in request.url.path %}active{% endif %}" href="/exportacion">
                                 <i class="bi bi-download me-2 text-primary"></i>Exportaciones
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.rol == 'admin' %}
                         <li>
                             <a class="dropdown-item {% if '/maestros' in request.url.path %}active{% endif %}" href="/maestros">
                                 <i class="bi bi-diagram-3 me-2 text-secondary"></i>Especies y Razas
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                 </li>
             </ul>
@@ -108,7 +170,32 @@
     {% block content %}{% endblock %}
 </main>
 
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+    <div id="toastGuardado" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle-fill me-2"></i><span id="toastGuardadoMsg">Guardado correctamente</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/app.js"></script>
+<script>
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var msg = params.get('guardado');
+    if (msg) {
+        document.getElementById('toastGuardadoMsg').textContent = (msg === '1') ? 'Guardado correctamente' : msg;
+        var toastEl = document.getElementById('toastGuardado');
+        new bootstrap.Toast(toastEl, {delay: 3000}).show();
+        params.delete('guardado');
+        var qs = params.toString();
+        history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+    }
+})();
+</script>
 </body>
 </html>

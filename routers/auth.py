@@ -5,9 +5,19 @@ from sqlalchemy.orm import Session
 from database import get_db
 from auth import verify_password, create_access_token, hash_password, get_current_user
 from models.usuario import Usuario, RolUsuario
+from models.cuaderno import ConfigExplotacion
+from scheduler import reprogramar_alertas
+from config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 templates = Jinja2Templates(directory="templates")
+
+PASSWORD_MIN_LEN = 6
+
+
+def _validar_password(password: str):
+    if len(password) < PASSWORD_MIN_LEN:
+        raise HTTPException(status_code=400, detail=f"La contraseña debe tener al menos {PASSWORD_MIN_LEN} caracteres")
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -31,7 +41,10 @@ def login(
         )
     token = create_access_token({"sub": user.username})
     response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie("access_token", token, httponly=True, max_age=60 * 60 * 24 * 7)
+    response.set_cookie(
+        "access_token", token, httponly=True, max_age=60 * 60 * 24 * 7,
+        secure=get_settings().COOKIE_SECURE, samesite="lax",
+    )
     return response
 
 
@@ -54,17 +67,16 @@ def setup(
     nombre: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
-    whatsapp: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
     if db.query(Usuario).count() > 0:
         raise HTTPException(status_code=400, detail="Setup ya completado")
+    _validar_password(password)
     user = Usuario(
         nombre=nombre,
         username=username,
         password_hash=hash_password(password),
         rol=RolUsuario.admin,
-        whatsapp=whatsapp or None,
     )
     db.add(user)
     db.commit()
@@ -82,11 +94,34 @@ def lista_usuarios(
     if current_user.rol != RolUsuario.admin:
         raise HTTPException(status_code=403, detail="Solo administradores")
     usuarios = db.query(Usuario).order_by(Usuario.nombre).all()
+    config = db.query(ConfigExplotacion).first()
     return templates.TemplateResponse("auth/usuarios.html", {
         "request": request,
         "usuarios": usuarios,
+        "hora_alertas": (config.hora_alertas if config and config.hora_alertas else "07:00"),
         "current_user": current_user,
     })
+
+
+@router.post("/usuarios/notificaciones")
+def guardar_notificaciones(
+    request: Request,
+    hora_alertas: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.admin:
+        raise HTTPException(status_code=403)
+    config = db.query(ConfigExplotacion).first()
+    if not config:
+        config = ConfigExplotacion(id=1)
+        db.add(config)
+    config.hora_alertas = hora_alertas
+    db.commit()
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if scheduler:
+        reprogramar_alertas(scheduler, hora_alertas)
+    return RedirectResponse(url="/auth/usuarios", status_code=302)
 
 
 @router.post("/usuarios/nuevo")
@@ -95,7 +130,6 @@ def crear_usuario(
     username: str = Form(...),
     password: str = Form(...),
     rol: str = Form(default="operario"),
-    whatsapp: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -103,12 +137,12 @@ def crear_usuario(
         raise HTTPException(status_code=403)
     if db.query(Usuario).filter(Usuario.username == username).first():
         raise HTTPException(status_code=400, detail="El usuario ya existe")
+    _validar_password(password)
     user = Usuario(
         nombre=nombre,
         username=username,
         password_hash=hash_password(password),
         rol=rol,
-        whatsapp=whatsapp or None,
     )
     db.add(user)
     db.commit()
@@ -145,6 +179,7 @@ def cambiar_password(
     user = db.query(Usuario).filter(Usuario.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
+    _validar_password(password)
     user.password_hash = hash_password(password)
     db.commit()
     return RedirectResponse(url="/auth/usuarios", status_code=302)

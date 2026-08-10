@@ -1,0 +1,5 @@
+# Lista de apps Fly.io de clientes de GranjaManager, una por línea.
+# desplegar_todos.sh recorre este fichero para actualizar a todos a la vez.
+# provisionar_cliente.sh añade aquí automáticamente cada cliente nuevo.
+granja-manager
+granja-demo

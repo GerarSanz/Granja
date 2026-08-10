@@ -51,10 +51,12 @@ class RacionTipo(Base):
     id = Column(Integer, primary_key=True, index=True)
     estado_productivo = Column(String(30), nullable=False)
     alimento_id = Column(Integer, ForeignKey("alimentos.id"), nullable=False)
+    especie_id = Column(Integer, ForeignKey("especies.id"), nullable=True)
     kg_por_animal_dia = Column(Float, nullable=False)
     observaciones = Column(Text, nullable=True)
 
     alimento = relationship("Alimento", back_populates="raciones")
+    especie = relationship("Especie")
 
 
 class StockMovimiento(Base):

@@ -3,19 +3,49 @@
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Sanidad</h5>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-capsule me-2"></i>Sanidad</h5>
     <div class="d-flex gap-2">
-        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalTratamiento">
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalTratamiento">
             <i class="bi bi-plus-lg me-1"></i>Tratamiento
         </button>
-        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalDesparasitacion">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalDesparasitacion">
             <i class="bi bi-bug me-1"></i>Desparasitación
         </button>
-        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalVacuna">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalVacuna">
             <i class="bi bi-shield-plus me-1"></i>Plan vacunal
         </button>
     </div>
 </div>
+
+<!-- Filtro por lote / raza (afecta a tratamientos y desparasitaciones) -->
+<form method="get" action="/sanidad" class="card mb-3">
+    <div class="card-body py-2 d-flex gap-2 align-items-center flex-wrap">
+        <i class="bi bi-funnel text-muted"></i>
+        {% if trat_anio %}<input type="hidden" name="trat_anio" value="{{ trat_anio }}">{% endif %}
+        {% if trat_animal %}<input type="hidden" name="trat_animal" value="{{ trat_animal }}">{% endif %}
+        {% if trat_orden != 'fecha_desc' %}<input type="hidden" name="trat_orden" value="{{ trat_orden }}">{% endif %}
+        {% if desp_anio %}<input type="hidden" name="desp_anio" value="{{ desp_anio }}">{% endif %}
+        <select name="lote_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">Todos los lotes</option>
+            <option value="sin_lote" {% if filtro_lote == 'sin_lote' %}selected{% endif %}>— Sin lote asignado</option>
+            {% for l in lotes %}
+            <option value="{{ l.id }}" {% if filtro_lote == l.id|string %}selected{% endif %}>{{ l.nombre }}</option>
+            {% endfor %}
+        </select>
+        <select name="raza" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">Todas las razas</option>
+            {% for r in razas_disponibles %}
+            <option value="{{ r }}" {% if filtro_raza == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+        </select>
+        {% if filtro_lote or filtro_raza %}
+        <span class="small text-muted">Filtrando tratamientos y desparasitaciones por este lote/raza (las de todo el rebaño siempre se muestran)</span>
+        <a href="/sanidad" class="btn btn-xs btn-outline-secondary">
+            <i class="bi bi-x-lg me-1"></i>Quitar filtro
+        </a>
+        {% endif %}
+    </div>
+</form>
 
 <!-- Tiempos de espera activos -->
 {% if en_espera %}
@@ -27,16 +57,22 @@
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle">
                 <thead class="table-light">
-                    <tr><th>Animal</th><th>Medicamento</th><th>Fin espera</th><th>Días restantes</th></tr>
+                    <tr><th>Aplica a</th><th>Medicamento</th><th>Fin espera</th><th>Días restantes</th></tr>
                 </thead>
                 <tbody>
                     {% for t in en_espera %}
                     {% set dias = (t.fecha_fin_espera - hoy).days %}
                     <tr>
                         <td>
+                            {% if t.aplica_todo_rebano %}
+                            <span class="fw-semibold">Todo el rebaño</span>
+                            {% elif t.lote_id %}
+                            <span class="fw-semibold">Lote: {{ t.lote.nombre if t.lote else t.lote_id }}</span>
+                            {% else %}
                             <a href="/animales/{{ t.animal_crotal }}" class="text-decoration-none fw-semibold">
                                 {{ t.animal.display_name if t.animal else t.animal_crotal }}
                             </a>
+                            {% endif %}
                         </td>
                         <td class="small">{{ t.medicamento }}</td>
                         <td>{{ t.fecha_fin_espera.strftime('%d/%m/%Y') }}</td>
@@ -72,7 +108,7 @@
     <div class="card-body py-2 small text-muted">
         Último tratamiento: <strong>{{ proxima_desp.producto }}</strong>
         el {{ proxima_desp.fecha.strftime('%d/%m/%Y') }}
-        {% if proxima_desp.aplica_todo_rebano %}· Todo el rebaño{% elif proxima_desp.animal_crotal %}· {{ proxima_desp.animal_crotal }}{% endif %}
+        {% if proxima_desp.aplica_todo_rebano %}· Todo el rebaño{% elif proxima_desp.lote_id %}· Lote: {{ proxima_desp.lote.nombre if proxima_desp.lote else proxima_desp.lote_id }}{% elif proxima_desp.animal_crotal %}· {{ proxima_desp.animal_crotal }}{% endif %}
     </div>
 </div>
 {% endif %}
@@ -83,11 +119,32 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header py-2 d-flex align-items-center justify-content-between">
-                <span class="fw-semibold"><i class="bi bi-bug me-2 text-success"></i>Desparasitaciones</span>
+                <span class="fw-semibold">
+                    <i class="bi bi-bug me-2 text-success"></i>Desparasitaciones
+                    <span class="badge bg-secondary fw-normal ms-1">{{ desparasitaciones | length }}</span>
+                </span>
                 <button class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalDesparasitacion">
                     <i class="bi bi-plus-lg me-1"></i>Registrar
                 </button>
             </div>
+            {% if anios_desp %}
+            <form method="get" action="/sanidad" class="px-3 py-2 border-bottom bg-light d-flex gap-2 align-items-center flex-wrap">
+                {% if trat_anio %}<input type="hidden" name="trat_anio" value="{{ trat_anio }}">{% endif %}
+                {% if trat_animal %}<input type="hidden" name="trat_animal" value="{{ trat_animal }}">{% endif %}
+                {% if trat_orden != 'fecha_desc' %}<input type="hidden" name="trat_orden" value="{{ trat_orden }}">{% endif %}
+                <select name="desp_anio" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">Todos los años</option>
+                    {% for a in anios_desp %}
+                    <option value="{{ a }}" {% if desp_anio == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+                {% if desp_anio %}
+                <a href="/sanidad{% if trat_anio or trat_animal %}?trat_anio={{ trat_anio or '' }}&trat_animal={{ trat_animal or '' }}&trat_orden={{ trat_orden }}{% endif %}" class="btn btn-xs btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>Limpiar
+                </a>
+                {% endif %}
+            </form>
+            {% endif %}
             <div class="card-body p-0">
                 {% if desparasitaciones %}
                 <div class="table-responsive">
@@ -116,6 +173,10 @@
                                 <td>
                                     {% if d.aplica_todo_rebano %}
                                     <span class="badge bg-success bg-opacity-75">Todo el rebaño</span>
+                                    {% elif d.lote_id %}
+                                    <span class="badge bg-info bg-opacity-75 text-dark">
+                                        <i class="bi bi-map me-1"></i>{{ d.lote.nombre if d.lote else 'Lote #' + d.lote_id|string }}
+                                    </span>
                                     {% elif d.animal_crotal %}
                                     <a href="/animales/{{ d.animal_crotal }}" class="text-decoration-none">
                                         {{ d.animal.display_name if d.animal else d.animal_crotal }}
@@ -130,15 +191,125 @@
                                     </span>
                                     {% else %}—{% endif %}
                                 </td>
-                                <td>
+                                <td class="text-end">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1 me-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditDesp{{ d.id }}"
+                                            title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     <form method="post" action="/sanidad/desparasitacion/{{ d.id }}/eliminar"
-                                          onsubmit="return confirm('¿Eliminar este registro?')">
+                                          class="d-inline" onsubmit="return confirm('¿Eliminar este registro?')">
                                         <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
                                 </td>
                             </tr>
+
+                            <!-- Modal editar desparasitación -->
+                            <div class="modal fade" id="modalEditDesp{{ d.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar desparasitación</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/sanidad/desparasitacion/{{ d.id }}/editar">
+                                            <div class="modal-body">
+                                                <div class="row g-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                                                        <input type="date" name="fecha" class="form-control form-control-sm"
+                                                               value="{{ d.fecha.isoformat() }}" required>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Vía</label>
+                                                        <select name="via_administracion" class="form-select form-select-sm">
+                                                            <option value="">—</option>
+                                                            {% for v in ['oral','inyectable SC','inyectable IM','pour-on (derrame)'] %}
+                                                            <option {% if d.via_administracion == v %}selected{% endif %}>{{ v }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold">Producto <span class="text-danger">*</span></label>
+                                                        <input type="text" name="producto" class="form-control form-control-sm" list="listaProductosDesp"
+                                                               value="{{ d.producto }}" required>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Principio activo</label>
+                                                        <input type="text" name="principio_activo" class="form-control form-control-sm"
+                                                               value="{{ d.principio_activo or '' }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Dosis</label>
+                                                        <input type="text" name="dosis" class="form-control form-control-sm"
+                                                               value="{{ d.dosis or '' }}">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold d-block">Aplica a</label>
+                                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="ambito" id="ambitoRebano{{ d.id }}"
+                                                                   value="todo_rebano" {% if d.aplica_todo_rebano %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-success" for="ambitoRebano{{ d.id }}">Todo el rebaño</label>
+
+                                                            <input type="radio" class="btn-check" name="ambito" id="ambitoLote{{ d.id }}"
+                                                                   value="lote" {% if d.lote_id %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-success" for="ambitoLote{{ d.id }}">Por lote</label>
+
+                                                            <input type="radio" class="btn-check" name="ambito" id="ambitoIndividual{{ d.id }}"
+                                                                   value="individual" {% if d.animal_crotal %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-success" for="ambitoIndividual{{ d.id }}">Individual</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 campo-lote-ambito" style="display:{% if d.lote_id %}block{% else %}none{% endif %}">
+                                                        <label class="form-label small fw-semibold">Lote</label>
+                                                        <select name="lote_id" class="form-select form-select-sm">
+                                                            <option value="">— Selecciona —</option>
+                                                            {% for l in lotes %}
+                                                            <option value="{{ l.id }}" {% if l.id == d.lote_id %}selected{% endif %}>{{ l.nombre }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 campo-animal-ambito" style="display:{% if d.animal_crotal %}block{% else %}none{% endif %}">
+                                                        <label class="form-label small fw-semibold">Animal individual</label>
+                                                        <select name="animal_crotal" class="form-select form-select-sm">
+                                                            <option value="">— Selecciona —</option>
+                                                            {% for a in animales %}
+                                                            <option value="{{ a.crotal }}" {% if a.crotal == d.animal_crotal %}selected{% endif %}>
+                                                                {{ a.display_name }} ({{ a.crotal }})
+                                                            </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Periodicidad</small></div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small">Cada (meses)</label>
+                                                        <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm"
+                                                               value="{{ d.periodicidad_meses or '' }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small">Próxima fecha</label>
+                                                        <input type="date" name="proxima_fecha" class="form-control form-control-sm"
+                                                               value="{{ d.proxima_fecha.isoformat() if d.proxima_fecha else '' }}">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small">Observaciones</label>
+                                                        <input type="text" name="observaciones" class="form-control form-control-sm"
+                                                               value="{{ d.observaciones or '' }}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -173,7 +344,8 @@
                                 <div class="fw-semibold small">{{ pv.nombre }}</div>
                                 <div class="text-muted" style="font-size:.75rem;">
                                     {{ pv.vacuna }}
-                                    {% if pv.aplica_a != 'todo_rebano' %}· {{ pv.aplica_a | replace('_',' ') }}{% endif %}
+                                    {% if pv.aplica_a == 'por_lote' %}· Lote: {{ pv.lote.nombre if pv.lote else '?' }}
+                                    {% elif pv.aplica_a != 'todo_rebano' %}· {{ pv.aplica_a | replace('_',' ') }}{% endif %}
                                     {% if pv.periodicidad_meses %}· cada {{ pv.periodicidad_meses }} meses{% endif %}
                                 </div>
                                 {% if pv.proxima_fecha %}
@@ -182,11 +354,24 @@
                                 </small>
                                 {% endif %}
                             </div>
-                            <button class="btn btn-xs btn-outline-success flex-shrink-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalCompletar{{ pv.id }}"
-                                    title="Marcar como realizada">
-                                <i class="bi bi-check2"></i>
-                            </button>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                <button class="btn btn-xs btn-outline-success"
+                                        data-bs-toggle="modal" data-bs-target="#modalCompletar{{ pv.id }}"
+                                        title="Marcar como realizada">
+                                    <i class="bi bi-check2"></i>
+                                </button>
+                                <button class="btn btn-xs btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#modalEditVac{{ pv.id }}"
+                                        title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" action="/sanidad/vacuna/{{ pv.id }}/eliminar"
+                                      onsubmit="return confirm('¿Eliminar {{ pv.nombre }} del plan vacunal?')">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </li>
 
@@ -211,6 +396,63 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Modal editar vacuna -->
+                    <div class="modal fade" id="modalEditVac{{ pv.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-sm">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar vacuna</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/sanidad/vacuna/{{ pv.id }}/editar">
+                                    <div class="modal-body">
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                                            <input type="text" name="nombre" class="form-control form-control-sm"
+                                                   value="{{ pv.nombre }}" required>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Vacuna / producto <span class="text-danger">*</span></label>
+                                            <input type="text" name="vacuna" class="form-control form-control-sm"
+                                                   value="{{ pv.vacuna }}" required>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Aplica a</label>
+                                            <select name="aplica_a" class="form-select form-select-sm" onchange="actualizarAmbitoVacuna(this)">
+                                                {% for opt, lbl in [('todo_rebano','Todo el rebaño'),('hembras','Hembras'),('machos','Machos'),('terneros','Crías'),('por_lote','Por lote')] %}
+                                                <option value="{{ opt }}" {% if pv.aplica_a == opt %}selected{% endif %}>{{ lbl }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="mb-2 campo-lote-vacuna" style="display:{% if pv.aplica_a == 'por_lote' %}block{% else %}none{% endif %}">
+                                            <label class="form-label small fw-semibold">Lote</label>
+                                            <select name="lote_id" class="form-select form-select-sm">
+                                                <option value="">— Selecciona —</option>
+                                                {% for l in lotes %}
+                                                <option value="{{ l.id }}" {% if l.id == pv.lote_id %}selected{% endif %}>{{ l.nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Periodicidad (meses)</label>
+                                            <input type="number" min="1" name="periodicidad_meses"
+                                                   class="form-control form-control-sm"
+                                                   value="{{ pv.periodicidad_meses or '' }}">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Próxima fecha</label>
+                                            <input type="date" name="proxima_fecha" class="form-control form-control-sm"
+                                                   value="{{ pv.proxima_fecha.isoformat() if pv.proxima_fecha else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                     {% endfor %}
                 </ul>
                 {% else %}
@@ -223,31 +465,84 @@
     <!-- Últimos tratamientos -->
     <div class="col-12 col-lg-7">
         <div class="card h-100">
-            <div class="card-header py-2 fw-semibold">
-                <i class="bi bi-capsule me-2 text-danger"></i>Últimos tratamientos
+            <div class="card-header py-2 fw-semibold d-flex align-items-center justify-content-between">
+                <span>
+                    <i class="bi bi-capsule me-2 text-danger"></i>Tratamientos
+                    <span class="badge bg-secondary fw-normal ms-1">{{ tratamientos | length }}</span>
+                </span>
+                {% if trat_anio or trat_animal %}
+                <a href="/sanidad{% if desp_anio %}?desp_anio={{ desp_anio }}{% endif %}" class="btn btn-xs btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>Limpiar filtros
+                </a>
+                {% endif %}
             </div>
+            <form method="get" action="/sanidad" class="px-3 py-2 border-bottom bg-light">
+                {% if desp_anio %}<input type="hidden" name="desp_anio" value="{{ desp_anio }}">{% endif %}
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select name="trat_anio" class="form-select form-select-sm" style="width:auto">
+                            <option value="">Todos los años</option>
+                            {% for a in anios_trat %}
+                            <option value="{{ a }}" {% if trat_anio == a %}selected{% endif %}>{{ a }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col">
+                        <select name="trat_animal" class="form-select form-select-sm">
+                            <option value="">Todos los animales</option>
+                            {% for a in animales %}
+                            <option value="{{ a.crotal }}" {% if trat_animal == a.crotal %}selected{% endif %}>
+                                {{ a.display_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <select name="trat_orden" class="form-select form-select-sm" style="width:auto">
+                            <option value="fecha_desc" {% if trat_orden == 'fecha_desc' %}selected{% endif %}>↓ Fecha</option>
+                            <option value="fecha_asc"  {% if trat_orden == 'fecha_asc'  %}selected{% endif %}>↑ Fecha</option>
+                            <option value="animal_asc" {% if trat_orden == 'animal_asc' %}selected{% endif %}>Animal A-Z</option>
+                            <option value="medicamento_asc" {% if trat_orden == 'medicamento_asc' %}selected{% endif %}>Medicamento A-Z</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
             <div class="card-body p-0">
                 {% if tratamientos %}
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 small align-middle">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
                         <thead class="table-light">
                             <tr>
                                 <th>Fecha</th>
-                                <th>Animal</th>
+                                <th>Aplica a</th>
                                 <th>Medicamento</th>
                                 <th class="d-none d-md-table-cell">Dosis / Vía</th>
                                 <th>Espera</th>
                                 <th>Eco</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for t in tratamientos %}
-                            <tr>
+                            <tr {% if t.animal_crotal %}onclick="window.location='/animales/{{ t.animal_crotal }}'"{% endif %}>
                                 <td class="text-muted">{{ t.fecha.strftime('%d/%m/%y') }}</td>
                                 <td>
+                                    {% if t.aplica_todo_rebano %}
+                                    <span class="badge bg-success bg-opacity-75">Todo el rebaño</span>
+                                    {% elif t.lote_id %}
+                                    <span class="badge bg-info bg-opacity-75 text-dark">
+                                        <i class="bi bi-map me-1"></i>{{ t.lote.nombre if t.lote else 'Lote #' + t.lote_id|string }}
+                                    </span>
+                                    {% else %}
                                     <a href="/animales/{{ t.animal_crotal }}" class="text-decoration-none">
                                         {{ t.animal.display_name if t.animal else t.animal_crotal }}
                                     </a>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span>{{ t.medicamento }}</span>
@@ -271,7 +566,139 @@
                                     <i class="bi bi-dash text-muted"></i>
                                     {% endif %}
                                 </td>
+                                <td onclick="event.stopPropagation()" class="text-end">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditTrat{{ t.id }}"
+                                            title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="post" action="/sanidad/tratamiento/{{ t.id }}/eliminar"
+                                          class="d-inline" onsubmit="return confirm('¿Eliminar este tratamiento?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
+
+                            <!-- Modal editar tratamiento -->
+                            <div class="modal fade" id="modalEditTrat{{ t.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar tratamiento</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/sanidad/tratamiento/{{ t.id }}/editar">
+                                            <div class="modal-body">
+                                                <div class="row g-2">
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold d-block">Aplica a</label>
+                                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="ambito" id="tAmbitoRebano{{ t.id }}"
+                                                                   value="todo_rebano" {% if t.aplica_todo_rebano %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-danger" for="tAmbitoRebano{{ t.id }}">Todo el rebaño</label>
+
+                                                            <input type="radio" class="btn-check" name="ambito" id="tAmbitoLote{{ t.id }}"
+                                                                   value="lote" {% if t.lote_id %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-danger" for="tAmbitoLote{{ t.id }}">Por lote</label>
+
+                                                            <input type="radio" class="btn-check" name="ambito" id="tAmbitoIndividual{{ t.id }}"
+                                                                   value="individual" {% if t.animal_crotal %}checked{% endif %}
+                                                                   onchange="actualizarAmbito(this)">
+                                                            <label class="btn btn-outline-danger" for="tAmbitoIndividual{{ t.id }}">Individual</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 campo-lote-ambito" style="display:{% if t.lote_id %}block{% else %}none{% endif %}">
+                                                        <label class="form-label small fw-semibold">Lote</label>
+                                                        <select name="lote_id" class="form-select form-select-sm">
+                                                            <option value="">— Selecciona —</option>
+                                                            {% for l in lotes %}
+                                                            <option value="{{ l.id }}" {% if l.id == t.lote_id %}selected{% endif %}>{{ l.nombre }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 campo-animal-ambito" style="display:{% if t.animal_crotal %}block{% else %}none{% endif %}">
+                                                        <label class="form-label small fw-semibold">Animal</label>
+                                                        <select name="animal_crotal" class="form-select form-select-sm">
+                                                            <option value="">— Selecciona —</option>
+                                                            {% for a in animales %}
+                                                            <option value="{{ a.crotal }}" {% if a.crotal == t.animal_crotal %}selected{% endif %}>
+                                                                {{ a.display_name }} ({{ a.crotal }})
+                                                            </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                                                        <input type="date" name="fecha" class="form-control form-control-sm"
+                                                               value="{{ t.fecha.isoformat() }}" required>
+                                                    </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small fw-semibold">Días tiempo espera</label>
+                                                        <input type="number" min="0" name="dias_tiempo_espera"
+                                                               class="form-control form-control-sm"
+                                                               value="{{ t.dias_tiempo_espera or 0 }}">
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <label class="form-label small fw-semibold">Medicamento <span class="text-danger">*</span></label>
+                                                        <input type="text" name="medicamento" class="form-control form-control-sm" list="listaMedicamentos"
+                                                               value="{{ t.medicamento }}" required>
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <label class="form-label small fw-semibold">Principio activo</label>
+                                                        <input type="text" name="principio_activo" class="form-control form-control-sm"
+                                                               value="{{ t.principio_activo or '' }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Dosis</label>
+                                                        <input type="text" name="dosis" class="form-control form-control-sm"
+                                                               value="{{ t.dosis or '' }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Vía</label>
+                                                        <select name="via_administracion" class="form-select form-select-sm">
+                                                            <option value="">—</option>
+                                                            {% for v in ['oral','inyectable IM','inyectable IV','inyectable SC','tópico','intramamario'] %}
+                                                            <option {% if t.via_administracion == v %}selected{% endif %}>{{ v }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <label class="form-label small fw-semibold">Veterinario</label>
+                                                        <input type="text" name="veterinario" class="form-control form-control-sm" list="listaVeterinarios"
+                                                               value="{{ t.veterinario or '' }}">
+                                                    </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small fw-semibold">Nº Receta</label>
+                                                        <input type="text" name="num_receta" class="form-control form-control-sm"
+                                                               value="{{ t.num_receta or '' }}">
+                                                    </div>
+                                                    <div class="col-6 col-md-3 d-flex align-items-end">
+                                                        <div class="form-check mb-1">
+                                                            <input class="form-check-input" type="checkbox" name="es_ecologico"
+                                                                   value="1" id="ecoEdit{{ t.id }}" {% if t.es_ecologico %}checked{% endif %}>
+                                                            <label class="form-check-label small" for="ecoEdit{{ t.id }}">
+                                                                <i class="bi bi-leaf-fill text-success me-1"></i>Ecológico
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold">Observaciones</label>
+                                                        <input type="text" name="observaciones" class="form-control form-control-sm"
+                                                               value="{{ t.observaciones or '' }}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -295,9 +722,34 @@
             <form method="post" action="/sanidad/tratamiento/nuevo">
                 <div class="modal-body">
                     <div class="row g-2">
-                        <div class="col-12 col-md-6">
-                            <label class="form-label small fw-semibold">Animal <span class="text-danger">*</span></label>
-                            <select name="animal_crotal" class="form-select form-select-sm" required>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold d-block">Aplica a</label>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <input type="radio" class="btn-check" name="ambito" id="tAmbitoRebanoNuevo"
+                                       value="todo_rebano" onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-danger" for="tAmbitoRebanoNuevo">Todo el rebaño</label>
+
+                                <input type="radio" class="btn-check" name="ambito" id="tAmbitoLoteNuevo"
+                                       value="lote" onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-danger" for="tAmbitoLoteNuevo">Por lote</label>
+
+                                <input type="radio" class="btn-check" name="ambito" id="tAmbitoIndividualNuevo"
+                                       value="individual" checked onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-danger" for="tAmbitoIndividualNuevo">Individual</label>
+                            </div>
+                        </div>
+                        <div class="col-12 campo-lote-ambito" style="display:none">
+                            <label class="form-label small fw-semibold">Lote</label>
+                            <select name="lote_id" class="form-select form-select-sm">
+                                <option value="">— Selecciona —</option>
+                                {% for l in lotes %}
+                                <option value="{{ l.id }}">{{ l.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 campo-animal-ambito">
+                            <label class="form-label small fw-semibold">Animal</label>
+                            <select name="animal_crotal" class="form-select form-select-sm">
                                 <option value="">— Selecciona animal —</option>
                                 {% for a in animales %}
                                 <option value="{{ a.crotal }}">{{ a.display_name }} ({{ a.crotal }})</option>
@@ -315,7 +767,7 @@
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label small fw-semibold">Medicamento <span class="text-danger">*</span></label>
-                            <input type="text" name="medicamento" class="form-control form-control-sm" required>
+                            <input type="text" name="medicamento" class="form-control form-control-sm" list="listaMedicamentos" required>
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label small fw-semibold">Principio activo</label>
@@ -339,7 +791,7 @@
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label small fw-semibold">Veterinario</label>
-                            <input type="text" name="veterinario" class="form-control form-control-sm">
+                            <input type="text" name="veterinario" class="form-control form-control-sm" list="listaVeterinarios">
                         </div>
                         <div class="col-6 col-md-3">
                             <label class="form-label small fw-semibold">Nº Receta</label>
@@ -388,16 +840,26 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Aplica a</label>
-                            <select name="aplica_a" class="form-select form-select-sm">
+                            <select name="aplica_a" class="form-select form-select-sm" onchange="actualizarAmbitoVacuna(this)">
                                 <option value="todo_rebano">Todo el rebaño</option>
                                 <option value="hembras">Hembras</option>
                                 <option value="machos">Machos</option>
-                                <option value="terneros">Terneros</option>
+                                <option value="terneros">Crías</option>
+                                <option value="por_lote">Por lote</option>
                             </select>
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Periodicidad (meses)</label>
                             <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm" placeholder="Ej: 12">
+                        </div>
+                        <div class="col-12 campo-lote-vacuna" style="display:none">
+                            <label class="form-label small fw-semibold">Lote</label>
+                            <select name="lote_id" class="form-select form-select-sm">
+                                <option value="">— Selecciona —</option>
+                                {% for l in lotes %}
+                                <option value="{{ l.id }}">{{ l.nombre }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Próxima fecha prevista</label>
@@ -441,7 +903,7 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Producto <span class="text-danger">*</span></label>
-                            <input type="text" name="producto" class="form-control form-control-sm" required
+                            <input type="text" name="producto" class="form-control form-control-sm" list="listaProductosDesp" required
                                    placeholder="Ej: Ivomec, Dectomax, Albendazol…">
                         </div>
                         <div class="col-6">
@@ -455,16 +917,31 @@
                                    placeholder="Ej: 1 ml/50kg">
                         </div>
                         <div class="col-12">
-                            <div class="form-check mt-1">
-                                <input class="form-check-input" type="checkbox" name="aplica_todo_rebano"
-                                       value="1" id="checkTodoRebano" checked
-                                       onchange="document.getElementById('selectAnimalDesp').style.display = this.checked ? 'none' : 'block'">
-                                <label class="form-check-label small fw-semibold" for="checkTodoRebano">
-                                    Todo el rebaño
-                                </label>
+                            <label class="form-label small fw-semibold d-block">Aplica a</label>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <input type="radio" class="btn-check" name="ambito" id="ambitoRebanoNuevo"
+                                       value="todo_rebano" checked onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-success" for="ambitoRebanoNuevo">Todo el rebaño</label>
+
+                                <input type="radio" class="btn-check" name="ambito" id="ambitoLoteNuevo"
+                                       value="lote" onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-success" for="ambitoLoteNuevo">Por lote</label>
+
+                                <input type="radio" class="btn-check" name="ambito" id="ambitoIndividualNuevo"
+                                       value="individual" onchange="actualizarAmbito(this)">
+                                <label class="btn btn-outline-success" for="ambitoIndividualNuevo">Individual</label>
                             </div>
                         </div>
-                        <div class="col-12" id="selectAnimalDesp" style="display:none">
+                        <div class="col-12 campo-lote-ambito" style="display:none">
+                            <label class="form-label small fw-semibold">Lote</label>
+                            <select name="lote_id" class="form-select form-select-sm">
+                                <option value="">— Selecciona —</option>
+                                {% for l in lotes %}
+                                <option value="{{ l.id }}">{{ l.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 campo-animal-ambito" style="display:none">
                             <label class="form-label small fw-semibold">Animal individual</label>
                             <select name="animal_crotal" class="form-select form-select-sm">
                                 <option value="">— Selecciona —</option>
@@ -502,5 +979,29 @@
         </div>
     </div>
 </div>
+
+<datalist id="listaMedicamentos">
+    {% for m in medicamentos_usados %}<option value="{{ m }}">{% endfor %}
+</datalist>
+<datalist id="listaVeterinarios">
+    {% for v in veterinarios_usados %}<option value="{{ v }}">{% endfor %}
+</datalist>
+<datalist id="listaProductosDesp">
+    {% for p in productos_desp_usados %}<option value="{{ p }}">{% endfor %}
+</datalist>
+
+<script>
+function actualizarAmbito(radio) {
+    var form = radio.form;
+    var loteDiv = form.querySelector('.campo-lote-ambito');
+    var animalDiv = form.querySelector('.campo-animal-ambito');
+    if (loteDiv) loteDiv.style.display = (radio.value === 'lote') ? 'block' : 'none';
+    if (animalDiv) animalDiv.style.display = (radio.value === 'individual') ? 'block' : 'none';
+}
+function actualizarAmbitoVacuna(select) {
+    var loteDiv = select.form.querySelector('.campo-lote-vacuna');
+    if (loteDiv) loteDiv.style.display = (select.value === 'por_lote') ? 'block' : 'none';
+}
+</script>
 
 {% endblock %}

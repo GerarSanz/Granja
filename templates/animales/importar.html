@@ -187,12 +187,10 @@
                 <label class="form-label small mb-0 me-2">Lote para los sin lote asignado:</label>
             </div>
 
-            <!-- Formulario de confirmación — re-sube el fichero -->
+            <!-- Formulario de confirmación — reutiliza el fichero ya subido en la previsualización -->
             <form method="post" action="/animales/importar/confirmar"
-                  enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap"
+                  class="d-flex gap-2 align-items-center flex-wrap"
                   id="formConfirmar">
-                <input type="file" name="archivo" class="form-control form-control-sm"
-                       accept=".xlsx,.xls,.csv" required style="width:220px;" id="archivoConfirmar">
                 <select name="lote_defecto_id" class="form-select form-select-sm" style="width:160px;">
                     <option value="">— Sin lote —</option>
                     {% for l in lotes %}
@@ -213,13 +211,6 @@
         </a>
     </div>
 </div>
-
-<script>
-// Copiar el mismo fichero seleccionado al formulario de confirmación
-document.getElementById('archivoInput') && document.getElementById('archivoInput').addEventListener('change', function() {
-    // El usuario ya eligió el fichero, se guardará al hacer preview
-});
-</script>
 {% endif %}
 
 {% endblock %}

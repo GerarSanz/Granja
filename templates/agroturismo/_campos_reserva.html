@@ -1,0 +1,69 @@
+{# Espera una variable `valores` (dict) y la variable global `actividades`. #}
+<div class="row g-2">
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Actividad / Alojamiento <span class="text-danger">*</span></label>
+        <select name="actividad_id" class="form-select form-select-sm" required>
+            <option value="">— Selecciona —</option>
+            {% for a in actividades if a.activa %}
+            <option value="{{ a.id }}" {% if valores.get('actividad_id') == a.id %}selected{% endif %}>
+                {{ a.nombre }} (aforo {{ a.capacidad_maxima }})
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Fecha inicio <span class="text-danger">*</span></label>
+        <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ valores.get('fecha_inicio', '') }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Fecha fin</label>
+        <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ valores.get('fecha_fin', '') }}">
+        <span class="form-text">Vacío = igual a la de inicio</span>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Nº personas <span class="text-danger">*</span></label>
+        <input type="number" min="1" name="num_personas" class="form-control form-control-sm" value="{{ valores.get('num_personas', 1) }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Estado</label>
+        <select name="estado" class="form-select form-select-sm">
+            {% for e in ['pendiente','confirmada','completada','cancelada'] %}
+            <option value="{{ e }}" {% if valores.get('estado') == e %}selected{% endif %}>{{ e | capitalize }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-12 col-md-6">
+        <label class="form-label small fw-semibold">Nombre del visitante <span class="text-danger">*</span></label>
+        <input type="text" name="nombre_visitante" class="form-control form-control-sm" value="{{ valores.get('nombre_visitante', '') }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Teléfono</label>
+        <input type="text" name="telefono" class="form-control form-control-sm" value="{{ valores.get('telefono', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Email</label>
+        <input type="email" name="email" class="form-control form-control-sm" value="{{ valores.get('email', '') }}"
+               placeholder="Para confirmación automática">
+    </div>
+
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Precio total (€)</label>
+        <input type="number" step="0.01" min="0" name="precio_total" class="form-control form-control-sm"
+               value="{{ valores.get('precio_total', '') }}" placeholder="Auto si se deja vacío">
+    </div>
+    <div class="col-6 col-md-3 d-flex align-items-end">
+        {% set campo_id = "pagado-" ~ (valores.get('id') or 'nuevo') %}
+        <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" name="pagado" value="1" id="{{ campo_id }}"
+                   {% if valores.get('pagado') %}checked{% endif %}>
+            <label class="form-check-label small" for="{{ campo_id }}">
+                <i class="bi bi-cash-coin text-success me-1"></i>Pagado
+            </label>
+        </div>
+    </div>
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Observaciones</label>
+        <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ valores.get('observaciones', '') }}">
+    </div>
+</div>

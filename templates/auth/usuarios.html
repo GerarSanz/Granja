@@ -16,7 +16,6 @@
                     <th>Nombre</th>
                     <th>Usuario</th>
                     <th>Rol</th>
-                    <th>WhatsApp</th>
                     <th>Estado</th>
                     <th></th>
                 </tr>
@@ -33,7 +32,6 @@
                             <span class="badge bg-secondary">Operario</span>
                         {% endif %}
                     </td>
-                    <td>{{ u.whatsapp or '—' }}</td>
                     <td>
                         {% if u.activo %}
                             <span class="badge bg-success">Activo</span>
@@ -83,6 +81,26 @@
     </div>
 </div>
 
+<div class="card shadow-sm mt-3">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-bell me-2 text-warning"></i>Notificaciones
+    </div>
+    <div class="card-body">
+        <form method="post" action="/auth/usuarios/notificaciones" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small fw-semibold">Hora de envío de alertas por Telegram</label>
+                <input type="time" name="hora_alertas" class="form-control form-control-sm" value="{{ hora_alertas }}" required>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-success btn-sm">Guardar</button>
+            </div>
+            <div class="col-12">
+                <div class="form-text">Hora local (Europa/Madrid) a la que se generan y envían las alertas diarias.</div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal nuevo usuario -->
 <div class="modal fade" id="modalNuevo" tabindex="-1">
     <div class="modal-dialog">
@@ -112,10 +130,6 @@
                             <option value="operario">Operario</option>
                             <option value="admin">Administrador</option>
                         </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">WhatsApp <span class="text-muted">(opcional, para alertas)</span></label>
-                        <input type="text" name="whatsapp" class="form-control" placeholder="34600000000">
                     </div>
                 </div>
                 <div class="modal-footer">

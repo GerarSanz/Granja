@@ -42,6 +42,15 @@ body {
     border-radius: .25rem;
 }
 
+/* En móvil, agranda el área táctil de los botones xs (editar/eliminar en tablas)
+   sin perder la densidad visual compacta en escritorio */
+@media (max-width: 767px) {
+    .btn-xs {
+        padding: .35rem .55rem;
+        font-size: .85rem;
+    }
+}
+
 /* Input raciones inline */
 .racion-input {
     font-size: .8rem;

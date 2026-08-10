@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}Agroturismo — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-house-heart me-2"></i>Agroturismo y Reservas</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalReserva">
+            <i class="bi bi-calendar-plus me-1"></i>Reserva
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalActividad">
+            <i class="bi bi-plus-lg me-1"></i>Actividad / Alojamiento
+        </button>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ proximas | length }}</div>
+            <div class="kpi-label">Próximas reservas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ "%.0f €"|format(ingresos_previstos) }}</div>
+            <div class="kpi-label">Ingresos previstos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ actividades | selectattr('activa') | list | length }}</div>
+            <div class="kpi-label">Actividades activas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ reservas | selectattr('estado', 'equalto', 'pendiente') | list | length }}</div>
+            <div class="kpi-label">Pendientes de confirmar</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Actividades / Alojamientos -->
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-house-door me-2 text-success"></i>Actividades y alojamientos
+                <span class="badge bg-secondary fw-normal ms-1">{{ actividades | length }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if actividades %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Aforo</th>
+                                <th class="text-end">Precio</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in actividades %}
+                            <tr class="{% if not a.activa %}text-muted{% endif %}">
+                                <td class="fw-semibold">
+                                    {{ a.nombre }}
+                                    {% if not a.activa %}<span class="badge bg-secondary ms-1">Inactiva</span>{% endif %}
+                                </td>
+                                <td class="text-muted">{{ a.tipo | capitalize }}</td>
+                                <td class="text-end">{{ a.capacidad_maxima }}</td>
+                                <td class="text-end">
+                                    {{ "%.0f €/pers."|format(a.precio_persona) if a.precio_persona is not none else "—" }}
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditActividad{{ a.id }}" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="post" action="/agroturismo/actividad/{{ a.id }}/eliminar" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar {{ a.nombre }} y todas sus reservas?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+
+                            <!-- Modal editar actividad -->
+                            <div class="modal fade" id="modalEditActividad{{ a.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar actividad</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/agroturismo/actividad/{{ a.id }}/editar">
+                                            <div class="modal-body">
+                                                <div class="row g-2">
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                                                        <input type="text" name="nombre" class="form-control form-control-sm" value="{{ a.nombre }}" required>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Tipo</label>
+                                                        <select name="tipo" class="form-select form-select-sm">
+                                                            {% for t in ['visita','degustacion','taller','alojamiento','otro'] %}
+                                                            <option value="{{ t }}" {% if a.tipo == t %}selected{% endif %}>{{ t | capitalize }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Aforo máximo</label>
+                                                        <input type="number" min="1" name="capacidad_maxima" class="form-control form-control-sm"
+                                                               value="{{ a.capacidad_maxima }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Precio / persona (€)</label>
+                                                        <input type="number" step="0.01" min="0" name="precio_persona" class="form-control form-control-sm"
+                                                               value="{{ a.precio_persona if a.precio_persona is not none else '' }}">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small fw-semibold">Duración (horas)</label>
+                                                        <input type="number" step="0.5" min="0" name="duracion_horas" class="form-control form-control-sm"
+                                                               value="{{ a.duracion_horas if a.duracion_horas is not none else '' }}">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold">Descripción</label>
+                                                        <input type="text" name="descripcion" class="form-control form-control-sm" value="{{ a.descripcion or '' }}">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" name="activa" value="1"
+                                                                   id="activaEdit{{ a.id }}" {% if a.activa %}checked{% endif %}>
+                                                            <label class="form-check-label small" for="activaEdit{{ a.id }}">Activa (aceptando reservas)</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-semibold">Observaciones</label>
+                                                        <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ a.observaciones or '' }}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-house-door fs-3 d-block mb-2 opacity-25"></i>
+                    Sin actividades registradas
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Disponibilidad -->
+        {% if disponibilidad %}
+        <div class="card mt-3">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold"><i class="bi bi-calendar-week me-2 text-success"></i>Disponibilidad — próximos 14 días</span>
+            </div>
+            <form method="get" action="/agroturismo" class="px-3 py-2 border-bottom bg-light">
+                <select name="actividad_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    {% for a in actividades if a.activa %}
+                    <option value="{{ a.id }}" {% if actividad_disp and actividad_disp.id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr><th>Fecha</th><th class="text-end">Ocupadas</th><th class="text-end">Libres</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for d in disponibilidad %}
+                            <tr>
+                                <td class="{% if d.fecha == hoy %}fw-semibold{% endif %}">{{ d.fecha.strftime('%d/%m (%a)') }}</td>
+                                <td class="text-end">{{ d.ocupadas }} / {{ actividad_disp.capacidad_maxima }}</td>
+                                <td class="text-end">
+                                    <span class="badge {% if d.libres == 0 %}bg-danger{% elif d.libres <= 2 %}bg-warning text-dark{% else %}bg-success bg-opacity-75{% endif %}">
+                                        {{ d.libres }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Reservas -->
+    <div class="col-12 col-lg-7">
+        <div class="card h-100">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold">
+                    <i class="bi bi-journal-check me-2 text-success"></i>Reservas
+                    <span class="badge bg-secondary fw-normal ms-1">{{ reservas | length }}</span>
+                </span>
+                {% if filtro_actividad or filtro_estado %}
+                <a href="/agroturismo" class="btn btn-xs btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>Quitar filtro
+                </a>
+                {% endif %}
+            </div>
+            <form method="get" action="/agroturismo" class="px-3 py-2 border-bottom bg-light d-flex gap-2 flex-wrap">
+                <select name="actividad_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">Todas las actividades</option>
+                    {% for a in actividades %}
+                    <option value="{{ a.id }}" {% if filtro_actividad == a.id|string %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <select name="estado" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">Todos los estados</option>
+                    {% for e in ['pendiente','confirmada','completada','cancelada'] %}
+                    <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="card-body p-0">
+                {% if reservas %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fechas</th>
+                                <th>Actividad</th>
+                                <th>Visitante</th>
+                                <th class="text-end">Pers.</th>
+                                <th>Estado</th>
+                                <th class="text-end">Precio</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reservas %}
+                            <tr>
+                                <td class="text-muted text-nowrap">
+                                    {{ r.fecha_inicio.strftime('%d/%m/%y') }}
+                                    {% if r.fecha_fin != r.fecha_inicio %}<br>→ {{ r.fecha_fin.strftime('%d/%m/%y') }}{% endif %}
+                                </td>
+                                <td>{{ r.actividad.nombre if r.actividad else '—' }}</td>
+                                <td>
+                                    {{ r.nombre_visitante }}
+                                    {% if r.telefono %}<br><small class="text-muted">{{ r.telefono }}</small>{% endif %}
+                                </td>
+                                <td class="text-end">{{ r.num_personas }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if r.estado == 'confirmada' %}bg-success
+                                        {% elif r.estado == 'pendiente' %}bg-warning text-dark
+                                        {% elif r.estado == 'cancelada' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ r.estado | capitalize }}
+                                    </span>
+                                    {% if r.pagado %}<i class="bi bi-cash-coin text-success ms-1" title="Pagado"></i>{% endif %}
+                                </td>
+                                <td class="text-end">{{ "%.0f €"|format(r.precio_total) if r.precio_total is not none else "—" }}</td>
+                                <td class="text-end text-nowrap">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditReserva{{ r.id }}" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    {% if r.estado != 'cancelada' %}
+                                    <form method="post" action="/agroturismo/reserva/{{ r.id }}/cancelar" class="d-inline"
+                                          onsubmit="return confirm('¿Cancelar esta reserva? Se avisará al titular.')">
+                                        <button type="submit" class="btn btn-xs btn-outline-warning py-0 px-1" title="Cancelar">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <form method="post" action="/agroturismo/reserva/{{ r.id }}/eliminar" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar esta reserva definitivamente?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+
+                            <!-- Modal editar reserva -->
+                            <div class="modal fade" id="modalEditReserva{{ r.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar reserva</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/agroturismo/reserva/{{ r.id }}/editar">
+                                            <div class="modal-body">
+                                                {% set valores = {
+                                                    'id': r.id,
+                                                    'actividad_id': r.actividad_id,
+                                                    'fecha_inicio': r.fecha_inicio.isoformat(),
+                                                    'fecha_fin': r.fecha_fin.isoformat(),
+                                                    'num_personas': r.num_personas,
+                                                    'nombre_visitante': r.nombre_visitante,
+                                                    'email': r.email or '',
+                                                    'telefono': r.telefono or '',
+                                                    'estado': r.estado,
+                                                    'precio_total': r.precio_total if r.precio_total is not none else '',
+                                                    'pagado': r.pagado,
+                                                    'observaciones': r.observaciones or '',
+                                                } %}
+                                                {% include "agroturismo/_campos_reserva.html" %}
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-journal-check fs-3 d-block mb-2 opacity-25"></i>
+                    Sin reservas registradas
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva actividad -->
+<div class="modal fade" id="modalActividad" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-house-door me-2 text-success"></i>Nueva actividad / alojamiento</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/agroturismo/actividad/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" class="form-control form-control-sm" required
+                                   placeholder="Ej: Visita guiada a la quesería">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm">
+                                <option value="visita">Visita</option>
+                                <option value="degustacion">Degustación</option>
+                                <option value="taller">Taller</option>
+                                <option value="alojamiento">Alojamiento</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Aforo máximo <span class="text-danger">*</span></label>
+                            <input type="number" min="1" name="capacidad_maxima" class="form-control form-control-sm" value="10" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Precio / persona (€)</label>
+                            <input type="number" step="0.01" min="0" name="precio_persona" class="form-control form-control-sm" placeholder="Opcional">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Duración (horas)</label>
+                            <input type="number" step="0.5" min="0" name="duracion_horas" class="form-control form-control-sm" placeholder="Ej: 1.5">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Descripción</label>
+                            <input type="text" name="descripcion" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva reserva -->
+<div class="modal fade" id="modalReserva" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-calendar-plus me-2 text-success"></i>Nueva reserva</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/agroturismo/reserva/nueva">
+                <div class="modal-body">
+                    {% set valores = {'fecha_inicio': hoy.isoformat(), 'fecha_fin': hoy.isoformat(), 'num_personas': 1, 'estado': 'pendiente'} %}
+                    {% include "agroturismo/_campos_reserva.html" %}
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Se avisa por Telegram al titular y, si hay email, por correo al visitante
+                    </small>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Reservar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

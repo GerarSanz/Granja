@@ -35,6 +35,15 @@
     </div>
 </div>
 
+{% if otras_especies %}
+<div class="mb-3">
+    <small class="text-muted me-2"><i class="bi bi-tag me-1"></i>Otras especies:</small>
+    {% for nombre, n in otras_especies %}
+    <span class="badge bg-light text-dark border me-1">{{ nombre }}: {{ n }}</span>
+    {% endfor %}
+</div>
+{% endif %}
+
 <div class="row g-3">
 
     <!-- Próximos partos -->
@@ -93,7 +102,25 @@
                         <div class="d-flex align-items-start gap-2">
                             <i class="bi {% if alerta.nivel == 'urgente' %}bi-exclamation-triangle-fill text-danger{% else %}bi-info-circle-fill text-warning{% endif %} mt-1 flex-shrink-0"></i>
                             <div class="flex-grow-1">
+                                {% if alerta.tarea_id %}
+                                <a href="/tareas?estado=todas" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
+                                {% elif alerta.lote_queso_id %}
+                                <a href="/queseria/lote/{{ alerta.lote_queso_id }}" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
+                                {% elif alerta.animal_crotal %}
+                                <a href="/animales/{{ alerta.animal_crotal }}" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
+                                {% elif alerta.maquina_id %}
+                                <a href="/maquinaria" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
+                                {% else %}
                                 <small>{{ alerta.mensaje }}</small>
+                                {% endif %}
                                 <div class="text-muted" style="font-size:.7rem;">{{ alerta.fecha_disparo.strftime('%d/%m/%Y') }}</div>
                             </div>
                             <form method="post" action="/alertas/{{ alerta.id }}/leer" class="flex-shrink-0">
@@ -109,6 +136,56 @@
                 <div class="text-center text-muted py-4">
                     <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
                     Sin alertas pendientes
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tareas pendientes -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary bg-opacity-10 d-flex align-items-center justify-content-between py-2">
+                <span class="fw-semibold">
+                    <i class="bi bi-check2-square me-2 text-primary"></i>Tareas pendientes
+                    {% if n_tareas_pendientes and n_tareas_pendientes > 0 %}
+                    <span class="badge bg-primary ms-1">{{ n_tareas_pendientes }}</span>
+                    {% endif %}
+                </span>
+                <a href="/tareas" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if tareas_pendientes %}
+                <ul class="list-group list-group-flush">
+                    {% for t in tareas_pendientes %}
+                    {% set vencida = t.fecha_limite and t.fecha_limite < hoy %}
+                    <li class="list-group-item d-flex align-items-center justify-content-between py-2">
+                        <div>
+                            <form method="post" action="/tareas/{{ t.id }}/completar" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-link p-0 me-1 text-success" title="Marcar completada">
+                                    <i class="bi bi-square"></i>
+                                </button>
+                            </form>
+                            <span class="fw-semibold">{{ t.titulo }}</span>
+                            {% if t.es_recurrente %}<i class="bi bi-arrow-repeat text-muted ms-1"></i>{% endif %}
+                            {% if t.fecha_limite %}
+                            <br><small class="{% if vencida %}text-danger fw-semibold{% else %}text-muted{% endif %} ms-4">
+                                {{ t.fecha_limite.strftime('%d/%m/%Y') }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <span class="badge {% if t.prioridad == 'alta' %}bg-danger{% elif t.prioridad == 'media' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            {{ t.prioridad | capitalize }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+                    Sin tareas pendientes
                 </div>
                 {% endif %}
             </div>
@@ -162,9 +239,16 @@
                     <a href="/reproduccion/cubricion/nueva" class="btn btn-outline-warning btn-sm">
                         <i class="bi bi-heart-pulse me-1"></i>Registrar cubrición
                     </a>
+                    {% if 'alimentacion' in request.state.modulos %}
                     <a href="/alimentacion" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-basket3 me-1"></i>Actualizar stock
                     </a>
+                    {% endif %}
+                    {% if 'queseria' in request.state.modulos %}
+                    <a href="/queseria" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-egg-fried me-1"></i>Quesería
+                    </a>
+                    {% endif %}
                     {% if vacias > 0 %}
                     <a href="/animales?estado=vacia" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-search me-1"></i>Vacas vacías ({{ vacias }})

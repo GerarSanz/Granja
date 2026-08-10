@@ -1,0 +1,84 @@
+{# Espera una variable `valores` (dict de string->string), con claves vacías por defecto. #}
+<div class="row g-2">
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Fecha toma <span class="text-danger">*</span></label>
+        <input type="date" name="fecha_toma" class="form-control form-control-sm" value="{{ valores.get('fecha_toma', '') }}" required>
+    </div>
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Fecha recepción</label>
+        <input type="date" name="fecha_recepcion" class="form-control form-control-sm" value="{{ valores.get('fecha_recepcion', '') }}">
+    </div>
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Fecha emisión informe</label>
+        <input type="date" name="fecha_emision_informe" class="form-control form-control-sm" value="{{ valores.get('fecha_emision_informe', '') }}">
+    </div>
+
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Nº informe</label>
+        <input type="text" name="numero_informe" class="form-control form-control-sm" value="{{ valores.get('numero_informe', '') }}">
+    </div>
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Nº recepción</label>
+        <input type="text" name="numero_recepcion" class="form-control form-control-sm" value="{{ valores.get('numero_recepcion', '') }}">
+    </div>
+    <div class="col-6 col-md-4">
+        <label class="form-label small fw-semibold">Nº muestra</label>
+        <input type="text" name="numero_muestra" class="form-control form-control-sm" value="{{ valores.get('numero_muestra', '') }}">
+    </div>
+
+    <div class="col-6 col-md-6">
+        <label class="form-label small fw-semibold">Producto</label>
+        <input type="text" name="producto" class="form-control form-control-sm" value="{{ valores.get('producto', '') }}" placeholder="Leche de vaca cruda">
+    </div>
+    <div class="col-6 col-md-6">
+        <label class="form-label small fw-semibold">Descripción muestra</label>
+        <input type="text" name="descripcion_muestra" class="form-control form-control-sm" value="{{ valores.get('descripcion_muestra', '') }}">
+    </div>
+
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Bactoscan <small class="text-muted">(x1000 ufc/ml)</small></label>
+        <input type="number" step="0.01" name="bactoscan" class="form-control form-control-sm" value="{{ valores.get('bactoscan', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Células somáticas <small class="text-muted">(x1000/ml)</small></label>
+        <input type="number" step="0.01" name="celulas_somaticas" class="form-control form-control-sm" value="{{ valores.get('celulas_somaticas', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Crioscopía <small class="text-muted">(-m°C)</small></label>
+        <input type="number" step="0.01" name="crioscopia" class="form-control form-control-sm" value="{{ valores.get('crioscopia', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Urea <small class="text-muted">(mg/l)</small></label>
+        <input type="number" step="0.01" name="urea" class="form-control form-control-sm" value="{{ valores.get('urea', '') }}">
+    </div>
+
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Materia grasa <small class="text-muted">(%)</small></label>
+        <input type="number" step="0.01" name="materia_grasa" class="form-control form-control-sm" value="{{ valores.get('materia_grasa', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Proteína <small class="text-muted">(%)</small></label>
+        <input type="number" step="0.01" name="proteina" class="form-control form-control-sm" value="{{ valores.get('proteina', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Lactosa <small class="text-muted">(%)</small></label>
+        <input type="number" step="0.01" name="lactosa" class="form-control form-control-sm" value="{{ valores.get('lactosa', '') }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Extracto seco magro <small class="text-muted">(%)</small></label>
+        <input type="number" step="0.01" name="extracto_seco_magro" class="form-control form-control-sm" value="{{ valores.get('extracto_seco_magro', '') }}">
+    </div>
+
+    <div class="col-6 col-md-3">
+        <label class="form-label small fw-semibold">Inhibidores</label>
+        <select name="inhibidores" class="form-select form-select-sm">
+            <option value="" {% if not valores.get('inhibidores') %}selected{% endif %}>—</option>
+            <option value="Negativo" {% if valores.get('inhibidores') == 'Negativo' %}selected{% endif %}>Negativo</option>
+            <option value="Positivo" {% if valores.get('inhibidores') == 'Positivo' %}selected{% endif %}>Positivo</option>
+        </select>
+    </div>
+    <div class="col-12 col-md-9">
+        <label class="form-label small fw-semibold">Observaciones</label>
+        <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ valores.get('observaciones', '') }}">
+    </div>
+</div>

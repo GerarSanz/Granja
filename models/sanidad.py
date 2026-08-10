@@ -17,7 +17,9 @@ class Tratamiento(Base):
     __tablename__ = "tratamientos"
 
     id = Column(Integer, primary_key=True, index=True)
-    animal_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=False)
+    animal_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=True)
+    aplica_todo_rebano = Column(Boolean, default=False)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
     fecha = Column(Date, nullable=False)
     medicamento = Column(String(200), nullable=False)
     principio_activo = Column(String(200), nullable=True)
@@ -31,6 +33,7 @@ class Tratamiento(Base):
     observaciones = Column(Text, nullable=True)
 
     animal = relationship("Animal", back_populates="tratamientos")
+    lote = relationship("Lote")
 
 
 class Desparasitacion(Base):
@@ -44,11 +47,13 @@ class Desparasitacion(Base):
     via_administracion = Column(String(50), nullable=True)  # oral, inyectable, pour-on
     aplica_todo_rebano = Column(Boolean, default=True)
     animal_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=True)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
     periodicidad_meses = Column(Integer, nullable=True)
     proxima_fecha = Column(Date, nullable=True)
     observaciones = Column(Text, nullable=True)
 
     animal = relationship("Animal", back_populates="desparasitaciones")
+    lote = relationship("Lote")
 
 
 class PlanVacunal(Base):
@@ -59,7 +64,10 @@ class PlanVacunal(Base):
     descripcion = Column(Text, nullable=True)
     vacuna = Column(String(200), nullable=False)
     periodicidad_meses = Column(Integer, nullable=True)
-    aplica_a = Column(String(50), default="todo_rebano")  # todo_rebano / hembras / machos / terneros
+    aplica_a = Column(String(50), default="todo_rebano")  # todo_rebano / hembras / machos / terneros / por_lote
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
     proxima_fecha = Column(Date, nullable=True)
     ultima_fecha = Column(Date, nullable=True)
     activo = Column(Boolean, default=True)
+
+    lote = relationship("Lote")

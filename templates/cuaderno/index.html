@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}Cuaderno de Explotación — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-journal-text me-2"></i>Cuaderno de Explotación</h5>
+    <div class="d-flex gap-2 align-items-center">
+        <form method="get" action="/cuaderno/pdf" class="d-flex gap-2 align-items-center">
+            <select name="anio" class="form-select form-select-sm" style="width:90px">
+                {% for y in range(anio_actual, anio_actual - 6, -1) %}
+                <option value="{{ y }}" {% if y == anio_actual %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-file-pdf me-1"></i>Generar PDF
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-info small mb-3 py-2">
+    <i class="bi bi-info-circle me-1"></i>
+    El cuaderno de explotación de productos fitosanitarios es exigido por el Real Decreto 1311/2012.
+    Rellena los datos de tu explotación, aplicadores y equipos, y el PDF se genera automáticamente con todos los tratamientos y abonados del año seleccionado.
+</div>
+
+{% if campos_faltantes %}
+<div class="alert alert-danger small mb-3 py-2">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Faltan datos obligatorios de la explotación: <strong>{{ campos_faltantes | join(', ') }}</strong>.
+    Complétalos abajo antes de presentar el PDF en una inspección.
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+    <!-- Datos de la explotación (1.1) -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header py-2 bg-success bg-opacity-10 d-flex align-items-center justify-content-between">
+                <strong class="small"><i class="bi bi-building me-1 text-success"></i>1.1 Datos generales de la explotación</strong>
+                <button class="btn btn-xs btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#collapseConfig">
+                    <i class="bi bi-pencil"></i> Editar
+                </button>
+            </div>
+
+            <!-- Vista resumida -->
+            <div class="card-body py-2 small" id="viewConfig">
+                {% if config and config.nombre_razon_social %}
+                <div class="row g-1">
+                    <div class="col-6 col-md-4">
+                        <span class="text-muted">Explotación:</span> <strong>{{ config.nombre_razon_social }}</strong>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <span class="text-muted">NIF:</span> {{ config.nif or '—' }}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <span class="text-muted">Reg. Nacional:</span> {{ config.n_registro_nacional or '—' }}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <span class="text-muted">Reg. Autonómico:</span> {{ config.n_registro_autonomico or '—' }}
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <span class="text-muted">Dirección:</span>
+                        {{ config.direccion or '' }}{% if config.localidad %}, {{ config.localidad }}{% endif %}
+                        {% if config.cp %}({{ config.cp }}){% endif %}
+                        {% if config.provincia %} — {{ config.provincia }}{% endif %}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <span class="text-muted">Titular:</span> {{ config.titular_nombre or '—' }}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <span class="text-muted">Sistema GIP:</span>
+                        <span class="badge bg-success bg-opacity-75">{{ config.tipo_explotacion_gip or 'AE' }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Sin datos — haz clic en Editar para rellenarlos.</span>
+                {% endif %}
+            </div>
+
+            <!-- Formulario edición -->
+            <div class="collapse" id="collapseConfig">
+                <div class="card-body border-top pt-3">
+                    <form method="post" action="/cuaderno/config">
+                        <div class="row g-2">
+                            <div class="col-12 col-md-8">
+                                <label class="form-label small fw-semibold">Nombre / Razón social</label>
+                                <input type="text" name="nombre_razon_social" class="form-control form-control-sm"
+                                       value="{{ config.nombre_razon_social or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small fw-semibold">NIF</label>
+                                <input type="text" name="nif" class="form-control form-control-sm"
+                                       value="{{ config.nif or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small fw-semibold">Sistema GIP</label>
+                                <select name="tipo_explotacion_gip" class="form-select form-select-sm">
+                                    {% for cod, label in [('AE','AE — Ecológica'),('PI','PI — Producción Integrada'),('CP','CP — Certificación Privada'),('Atrias','Atrias'),('AS','AS — Con asesor'),('NO','NO — Sin obligación')] %}
+                                    <option value="{{ cod }}" {% if config and config.tipo_explotacion_gip == cod %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small fw-semibold">Nº Registro Nacional</label>
+                                <input type="text" name="n_registro_nacional" class="form-control form-control-sm"
+                                       value="{{ config.n_registro_nacional or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small fw-semibold">Nº Registro Autonómico</label>
+                                <input type="text" name="n_registro_autonomico" class="form-control form-control-sm"
+                                       value="{{ config.n_registro_autonomico or '' if config else '' }}">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-semibold">Dirección</label>
+                                <input type="text" name="direccion" class="form-control form-control-sm"
+                                       value="{{ config.direccion or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Localidad</label>
+                                <input type="text" name="localidad" class="form-control form-control-sm"
+                                       value="{{ config.localidad or '' if config else '' }}">
+                            </div>
+                            <div class="col-3 col-md-2">
+                                <label class="form-label small fw-semibold">C. Postal</label>
+                                <input type="text" name="cp" class="form-control form-control-sm"
+                                       value="{{ config.cp or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Provincia</label>
+                                <input type="text" name="provincia" class="form-control form-control-sm"
+                                       value="{{ config.provincia or '' if config else '' }}" placeholder="Asturias">
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small fw-semibold">Teléfono fijo</label>
+                                <input type="text" name="telefono_fijo" class="form-control form-control-sm"
+                                       value="{{ config.telefono_fijo or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small fw-semibold">Móvil</label>
+                                <input type="text" name="telefono_movil" class="form-control form-control-sm"
+                                       value="{{ config.telefono_movil or '' if config else '' }}">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-semibold">E-mail</label>
+                                <input type="email" name="email" class="form-control form-control-sm"
+                                       value="{{ config.email or '' if config else '' }}">
+                            </div>
+                            <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Titular de la explotación</small></div>
+                            <div class="col-8 col-md-5">
+                                <label class="form-label small fw-semibold">Nombre y apellidos</label>
+                                <input type="text" name="titular_nombre" class="form-control form-control-sm"
+                                       value="{{ config.titular_nombre or '' if config else '' }}">
+                            </div>
+                            <div class="col-4 col-md-2">
+                                <label class="form-label small fw-semibold">NIF</label>
+                                <input type="text" name="titular_nif" class="form-control form-control-sm"
+                                       value="{{ config.titular_nif or '' if config else '' }}">
+                            </div>
+                            <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Asesor / Entidad de asesoramiento</small></div>
+                            <div class="col-8 col-md-5">
+                                <label class="form-label small fw-semibold">Nombre / Razón social</label>
+                                <input type="text" name="asesor_nombre" class="form-control form-control-sm"
+                                       value="{{ config.asesor_nombre or '' if config else '' }}">
+                            </div>
+                            <div class="col-4 col-md-2">
+                                <label class="form-label small fw-semibold">NIF</label>
+                                <input type="text" name="asesor_nif" class="form-control form-control-sm"
+                                       value="{{ config.asesor_nif or '' if config else '' }}">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Nº identificación</label>
+                                <input type="text" name="asesor_n_identificacion" class="form-control form-control-sm"
+                                       value="{{ config.asesor_n_identificacion or '' if config else '' }}">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-check2 me-1"></i>Guardar datos
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#collapseConfig">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aplicadores (1.2) -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2 bg-success bg-opacity-10 d-flex align-items-center justify-content-between">
+                <strong class="small"><i class="bi bi-person-badge me-1 text-success"></i>1.2 Aplicadores</strong>
+                <button class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAplicador">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                {% if aplicadores %}
+                <table class="table table-sm table-hover mb-0 small align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:30px">Nº</th>
+                            <th>Nombre / Empresa</th>
+                            <th>ROPO</th>
+                            <th>Carné</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in aplicadores %}
+                        <tr>
+                            <td class="text-muted">{{ loop.index }}</td>
+                            <td class="fw-semibold">{{ a.nombre }}</td>
+                            <td class="text-muted">{{ a.n_inscripcion_ropo or '—' }}</td>
+                            <td><span class="badge bg-secondary">{{ a.tipo_carne or '—' }}</span></td>
+                            <td>
+                                <form method="post" action="/cuaderno/aplicador/{{ a.id }}/eliminar"
+                                      onsubmit="return confirm('¿Eliminar aplicador?')">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-person-badge fs-3 d-block mb-1 text-muted"></i>
+                    Sin aplicadores. Añade la persona o empresa que aplica los productos.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipos (1.3) -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2 bg-success bg-opacity-10 d-flex align-items-center justify-content-between">
+                <strong class="small"><i class="bi bi-tools me-1 text-success"></i>1.3 Equipos de aplicación</strong>
+                <button class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalEquipo">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                {% if equipos %}
+                <table class="table table-sm table-hover mb-0 small align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:30px">Nº</th>
+                            <th>Descripción</th>
+                            <th>ROMA</th>
+                            <th class="d-none d-md-table-cell">Última inspección</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in equipos %}
+                        <tr>
+                            <td class="text-muted">{{ loop.index }}</td>
+                            <td class="fw-semibold">{{ e.descripcion }}</td>
+                            <td class="text-muted">{{ e.n_inscripcion_roma or '—' }}</td>
+                            <td class="d-none d-md-table-cell text-muted">{{ e.fecha_ultima_inspeccion or '—' }}</td>
+                            <td>
+                                <form method="post" action="/cuaderno/equipo/{{ e.id }}/eliminar"
+                                      onsubmit="return confirm('¿Eliminar equipo?')">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-tools fs-3 d-block mb-1 text-muted"></i>
+                    Sin equipos. Añade el pulverizador u otro equipo de aplicación.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen del contenido del PDF -->
+    <div class="col-12">
+        <div class="card shadow-sm bg-light border-0">
+            <div class="card-body py-2 small">
+                <strong class="d-block mb-1"><i class="bi bi-file-earmark-pdf text-danger me-1"></i>El PDF incluirá automáticamente:</strong>
+                <div class="row g-1">
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 1.1 — Datos de la explotación
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 1.2 — Aplicadores registrados
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 1.3 — Equipos de aplicación
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 2.1 — Parcelas (SIGPAC)
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 3.1 — Tratamientos fitosanitarios del año
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Sec. 6 — Registro de fertilización del año
+                    </div>
+                </div>
+                <p class="text-muted mt-1 mb-0">
+                    Los tratamientos fitosanitarios y abonados se registran en la ficha de cada parcela
+                    (<a href="/lotes">Lotes y Parcelas</a>). Puedes añadir Nº Registro, problema fitosanitario y eficacia en cada tratamiento.
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal: Nuevo aplicador -->
+<div class="modal fade" id="modalAplicador" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-person-badge me-2 text-success"></i>Añadir aplicador</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/cuaderno/aplicador/nuevo">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nombre y apellidos / Empresa <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">NIF</label>
+                        <input type="text" name="nif" class="form-control form-control-sm">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nº Inscripción ROPO</label>
+                        <input type="text" name="n_inscripcion_ropo" class="form-control form-control-sm"
+                               placeholder="Nº en el registro oficial">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Tipo de carné</label>
+                        <select name="tipo_carne" class="form-select form-select-sm">
+                            <option value="basico">Básico</option>
+                            <option value="cualificado">Cualificado</option>
+                            <option value="fumigador">Fumigador</option>
+                            <option value="piloto">Piloto aplicador</option>
+                            <option value="asesor">Asesor</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Añadir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo equipo -->
+<div class="modal fade" id="modalEquipo" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-tools me-2 text-success"></i>Añadir equipo de aplicación</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/cuaderno/equipo/nuevo">
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Descripción (tipo, marca, modelo) <span class="text-danger">*</span></label>
+                        <input type="text" name="descripcion" class="form-control form-control-sm" required
+                               placeholder="Ej: Mochila pulverizadora Solo 425">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Nº Inscripción ROMA</label>
+                        <input type="text" name="n_inscripcion_roma" class="form-control form-control-sm"
+                               placeholder="Si no aplica, dejar en blanco">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Fecha de adquisición</label>
+                        <input type="date" name="fecha_adquisicion" class="form-control form-control-sm">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Fecha última inspección</label>
+                        <input type="date" name="fecha_ultima_inspeccion" class="form-control form-control-sm">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Añadir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

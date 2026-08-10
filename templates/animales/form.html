@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if animal %}Editar{% else %}Nuevo animal{% endif %} — GranjaManager{% endblock %}
 {% block content %}
+{% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <a href="/animales" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
@@ -36,12 +37,12 @@
 
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-semibold">Raza</label>
-                    <select name="raza" class="form-select">
+                    <select name="raza_id" class="form-select">
                         <option value="">— Sin especificar —</option>
                         {% for e in especies %}
                         <optgroup label="{{ e.nombre }}">
                             {% for r in e.razas %}
-                            <option value="{{ r.nombre }}"
+                            <option value="{{ r.id }}"
                                 {% if animal and animal.raza == r.nombre %}selected
                                 {% elif not animal and r.nombre == 'Asturiana de la Montaña' %}selected{% endif %}>
                                 {{ r.nombre }}
@@ -67,7 +68,7 @@
                         <option value="{{ e.value }}"
                             {% if animal and animal.estado == e.value %}selected
                             {% elif not animal and e.value == 'vacia' %}selected{% endif %}>
-                            {{ e.value | capitalize }}
+                            {{ ESTADO_LABEL.get(e.value, e.value | capitalize) }}
                         </option>
                         {% endfor %}
                     </select>

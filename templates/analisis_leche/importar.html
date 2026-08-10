@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Importar análisis de leche — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/analisis-leche" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-file-earmark-pdf me-2"></i>Importar informe de análisis (PDF)</h5>
+</div>
+
+{% if error %}
+<div class="alert alert-danger mb-3">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+{% if preview is none %}
+<div class="card" style="max-width: 520px;">
+    <div class="card-body">
+        <p class="small text-muted mb-3">
+            Sube el PDF del informe de laboratorio (por ejemplo, de LILA Asturias) y se leerán
+            automáticamente los datos del análisis. Podrás revisarlos y corregirlos antes de guardarlos.
+        </p>
+        <form method="post" action="/analisis-leche/importar/preview" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Archivo PDF</label>
+                <input type="file" name="archivo" accept="application/pdf" class="form-control form-control-sm" required>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-upload me-1"></i>Leer PDF
+            </button>
+        </form>
+    </div>
+</div>
+{% else %}
+
+{% if reconocido %}
+<div class="alert alert-success small py-2 mb-3">
+    <i class="bi bi-check-circle-fill me-1"></i>
+    Se han reconocido los datos de <strong>{{ archivo_nombre }}</strong>. Revisa los valores y confirma para guardarlos.
+</div>
+{% else %}
+<div class="alert alert-warning small py-2 mb-3">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No se han podido leer automáticamente todos los datos de <strong>{{ archivo_nombre }}</strong>
+    (puede que el formato del informe sea distinto al habitual). Completa a mano los campos que falten
+    — el PDF original se guardará igualmente.
+</div>
+{% endif %}
+
+<form method="post" action="/analisis-leche/importar/confirmar">
+    <div class="card mb-3">
+        <div class="card-body">
+            {% set valores = preview %}
+            {% include "analisis_leche/_campos_formulario.html" %}
+        </div>
+    </div>
+    <a href="/analisis-leche/importar" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+    <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check2-circle me-1"></i>Confirmar e importar
+    </button>
+</form>
+
+{% endif %}
+{% endblock %}

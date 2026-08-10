@@ -4,7 +4,7 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Reproducción</h5>
-    <a href="/reproduccion/cubricion/nueva" class="btn btn-warning btn-sm text-dark fw-semibold">
+    <a href="/reproduccion/cubricion/nueva" class="btn btn-success btn-sm">
         <i class="bi bi-plus-lg me-1"></i>Nueva cubrición
     </a>
 </div>
@@ -12,27 +12,27 @@
 <!-- Resumen -->
 <div class="row g-2 mb-3">
     <div class="col-6 col-md-3">
-        <div class="card border-0 bg-warning bg-opacity-10 text-center py-2">
-            <div class="fs-3 fw-bold text-warning">{{ proximos_partos | length }}</div>
-            <div class="small text-muted">Partos próximos</div>
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-warning">{{ proximos_partos | length }}</div>
+            <div class="kpi-label">Partos próximos</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 bg-info bg-opacity-10 text-center py-2">
-            <div class="fs-3 fw-bold text-info">{{ pendientes_destete | length }}</div>
-            <div class="small text-muted">Pendientes destete</div>
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-info">{{ pendientes_destete | length }}</div>
+            <div class="kpi-label">Pendientes destete</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 bg-secondary bg-opacity-10 text-center py-2">
-            <div class="fs-3 fw-bold text-secondary">{{ vacas_vacias | length }}</div>
-            <div class="small text-muted">Vacías sin cubrir</div>
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-secondary">{{ vacas_vacias | length }}</div>
+            <div class="kpi-label">Vacías sin cubrir</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 bg-success bg-opacity-10 text-center py-2">
-            <div class="fs-3 fw-bold text-success">{{ partos_recientes | length }}</div>
-            <div class="small text-muted">Partos recientes</div>
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-success">{{ partos_recientes | length }}</div>
+            <div class="kpi-label">Partos recientes</div>
         </div>
     </div>
 </div>
@@ -48,10 +48,10 @@
             <div class="card-body p-0">
                 {% if proximos_partos %}
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 small align-middle">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
                         <thead class="table-light">
                             <tr>
-                                <th>Vaca</th>
+                                <th>Hembra</th>
                                 <th>Cubrición</th>
                                 <th>Parto estimado</th>
                                 <th>Días</th>
@@ -61,7 +61,7 @@
                         <tbody>
                             {% for r in proximos_partos %}
                             {% set dias = (r.fecha_parto_estimada - hoy).days %}
-                            <tr>
+                            <tr onclick="window.location='/animales/{{ r.animal_crotal }}'">
                                 <td>
                                     <a href="/animales/{{ r.animal_crotal }}" class="text-decoration-none fw-semibold">
                                         {{ r.animal.display_name if r.animal else r.animal_crotal }}
@@ -74,7 +74,7 @@
                                         {{ dias }}d
                                     </span>
                                 </td>
-                                <td>
+                                <td onclick="event.stopPropagation()">
                                     <button class="btn btn-xs btn-outline-success py-0 px-1"
                                             data-bs-toggle="modal" data-bs-target="#modalParto{{ r.id }}"
                                             title="Registrar parto">
@@ -108,7 +108,7 @@
                                                     </select>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <label class="form-label small fw-semibold">Crotal ternero</label>
+                                                    <label class="form-label small fw-semibold">Crotal cría</label>
                                                     <input type="text" name="ternero_crotal" class="form-control form-control-sm text-uppercase">
                                                 </div>
                                                 <div class="row g-1 mb-2">
@@ -126,7 +126,7 @@
                                                 </div>
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="checkbox" name="ternero_vivo" value="1" checked id="vivo_r{{ r.id }}">
-                                                    <label class="form-check-label small" for="vivo_r{{ r.id }}">Ternero vivo</label>
+                                                    <label class="form-check-label small" for="vivo_r{{ r.id }}">Cría viva</label>
                                                 </div>
                                             </div>
                                             <div class="modal-footer py-2">
@@ -159,11 +159,11 @@
             <div class="card-body p-0">
                 {% if pendientes_destete %}
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 small align-middle">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
                         <thead class="table-light">
                             <tr>
                                 <th>Madre</th>
-                                <th>Ternero</th>
+                                <th>Cría</th>
                                 <th>Parto</th>
                                 <th>Edad</th>
                                 <th></th>
@@ -172,7 +172,7 @@
                         <tbody>
                             {% for r in pendientes_destete %}
                             {% set edad_dias = (hoy - r.parto_fecha).days %}
-                            <tr>
+                            <tr onclick="window.location='/animales/{{ r.animal_crotal }}'">
                                 <td>
                                     <a href="/animales/{{ r.animal_crotal }}" class="text-decoration-none">
                                         {{ r.animal.display_name if r.animal else r.animal_crotal }}
@@ -191,7 +191,7 @@
                                         {{ edad_dias }}d
                                     </span>
                                 </td>
-                                <td>
+                                <td onclick="event.stopPropagation()">
                                     <button class="btn btn-xs btn-outline-info py-0 px-1"
                                             data-bs-toggle="modal" data-bs-target="#modalDestete{{ r.id }}"
                                             title="Registrar destete">
@@ -205,7 +205,7 @@
                                 <div class="modal-dialog modal-sm">
                                     <div class="modal-content">
                                         <div class="modal-header py-2">
-                                            <h6 class="modal-title">Destete — {{ r.ternero_crotal or 'ternero' }}</h6>
+                                            <h6 class="modal-title">Destete — {{ r.ternero_crotal or 'cría' }}</h6>
                                             <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
                                         </div>
                                         <form method="post" action="/reproduccion/destete/{{ r.id }}">
@@ -250,7 +250,7 @@
         <div class="card border-secondary">
             <div class="card-header py-2 bg-secondary bg-opacity-10 fw-semibold">
                 <i class="bi bi-exclamation-circle me-2 text-secondary"></i>
-                Vacas vacías sin cubrir ({{ vacas_vacias | length }})
+                Hembras vacías sin cubrir ({{ vacas_vacias | length }})
             </div>
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap gap-2">

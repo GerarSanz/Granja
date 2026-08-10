@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% block title %}Maquinaria — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-tools me-2"></i>Maquinaria</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalMaquina">
+            <i class="bi bi-plus-lg me-1"></i>Máquina
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalRevision">
+            <i class="bi bi-wrench-adjustable me-1"></i>Revisión
+        </button>
+    </div>
+</div>
+
+<!-- Próxima revisión -->
+{% if proxima_revision %}
+{% set dias_prox = (proxima_revision.fecha - hoy).days %}
+<div class="card mb-3 {% if dias_prox <= 14 %}border-warning{% else %}border-0{% endif %}">
+    <div class="card-header py-2 {% if dias_prox <= 14 %}bg-warning bg-opacity-10{% else %}bg-light{% endif %} fw-semibold">
+        <i class="bi bi-wrench-adjustable me-2 {% if dias_prox <= 14 %}text-warning{% else %}text-success{% endif %}"></i>
+        Próxima revisión
+        {% if dias_prox < 0 %}
+        <span class="badge bg-danger ms-2">Vencida hace {{ -dias_prox }} días</span>
+        {% elif dias_prox <= 14 %}
+        <span class="badge bg-warning text-dark ms-2">En {{ dias_prox }} días</span>
+        {% else %}
+        <span class="badge bg-secondary ms-2">{{ proxima_revision.fecha.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body py-2 small text-muted">
+        <strong>{{ proxima_revision.maquina.nombre }}</strong>
+        {% if proxima_revision.maquina.tipo %}· {{ proxima_revision.maquina.tipo }}{% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Máquinas -->
+<div class="card mb-3">
+    <div class="card-header py-2 d-flex align-items-center justify-content-between">
+        <span class="fw-semibold">
+            <i class="bi bi-truck-front me-2 text-success"></i>Máquinas
+            <span class="badge bg-secondary fw-normal ms-1">{{ maquinas | length }}</span>
+        </span>
+    </div>
+    <div class="card-body p-0">
+        {% if maquinas %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 small align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th class="d-none d-md-table-cell">Tipo</th>
+                        <th class="d-none d-md-table-cell">Marca / Modelo</th>
+                        <th class="d-none d-lg-table-cell">Matrícula</th>
+                        <th>Próxima revisión</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in maquinas %}
+                    {% set prox = proximas_por_maquina.get(m.id) %}
+                    <tr class="{% if not m.activa %}text-muted{% endif %}">
+                        <td class="fw-semibold">
+                            {{ m.nombre }}
+                            {% if not m.activa %}<span class="badge bg-secondary ms-1">Inactiva</span>{% endif %}
+                        </td>
+                        <td class="d-none d-md-table-cell text-muted">{{ m.tipo or '—' }}</td>
+                        <td class="d-none d-md-table-cell text-muted">
+                            {{ m.marca or '' }} {{ m.modelo or '' }}{% if not m.marca and not m.modelo %}—{% endif %}
+                        </td>
+                        <td class="d-none d-lg-table-cell text-muted">{{ m.matricula or '—' }}</td>
+                        <td>
+                            {% if prox %}
+                            {% set dias = (prox - hoy).days %}
+                            <span class="{% if dias < 0 %}text-danger fw-semibold{% elif dias <= 14 %}text-warning fw-semibold{% else %}text-muted{% endif %}">
+                                {{ prox.strftime('%d/%m/%Y') }}
+                            </span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-xs btn-outline-success py-0 px-1" title="Registrar revisión"
+                                    data-bs-toggle="modal" data-bs-target="#modalRevision"
+                                    onclick="document.getElementById('selectMaquinaRevision').value='{{ m.id }}'">
+                                <i class="bi bi-wrench-adjustable"></i>
+                            </button>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditMaquina{{ m.id }}" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="post" action="/maquinaria/{{ m.id }}/eliminar" class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar {{ m.nombre }} y todo su historial de revisiones?')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Modal editar máquina -->
+                    <div class="modal fade" id="modalEditMaquina{{ m.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar máquina</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/maquinaria/{{ m.id }}/editar">
+                                    <div class="modal-body">
+                                        <div class="row g-2">
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                                                <input type="text" name="nombre" class="form-control form-control-sm" value="{{ m.nombre }}" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Tipo</label>
+                                                <input type="text" name="tipo" class="form-control form-control-sm" value="{{ m.tipo or '' }}"
+                                                       placeholder="Tractor, remolque…">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Matrícula</label>
+                                                <input type="text" name="matricula" class="form-control form-control-sm" value="{{ m.matricula or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Marca</label>
+                                                <input type="text" name="marca" class="form-control form-control-sm" value="{{ m.marca or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Modelo</label>
+                                                <input type="text" name="modelo" class="form-control form-control-sm" value="{{ m.modelo or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Nº de serie</label>
+                                                <input type="text" name="num_serie" class="form-control form-control-sm" value="{{ m.num_serie or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Fecha de compra</label>
+                                                <input type="date" name="fecha_compra" class="form-control form-control-sm"
+                                                       value="{{ m.fecha_compra.isoformat() if m.fecha_compra else '' }}">
+                                            </div>
+                                            <div class="col-12">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="activa" value="1"
+                                                           id="activaEdit{{ m.id }}" {% if m.activa %}checked{% endif %}>
+                                                    <label class="form-check-label small" for="activaEdit{{ m.id }}">Máquina activa</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Observaciones</label>
+                                                <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ m.observaciones or '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            <i class="bi bi-truck-front fs-3 d-block mb-2 opacity-25"></i>
+            Sin máquinas registradas
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Historial de revisiones -->
+<div class="card">
+    <div class="card-header py-2 d-flex align-items-center justify-content-between">
+        <span class="fw-semibold">
+            <i class="bi bi-clock-history me-2 text-success"></i>Historial de revisiones
+            <span class="badge bg-secondary fw-normal ms-1">{{ revisiones | length }}</span>
+        </span>
+        {% if filtro_maquina or filtro_anio %}
+        <a href="/maquinaria" class="btn btn-xs btn-outline-secondary">
+            <i class="bi bi-x-lg me-1"></i>Quitar filtro
+        </a>
+        {% endif %}
+    </div>
+    <form method="get" action="/maquinaria" class="px-3 py-2 border-bottom bg-light d-flex gap-2 align-items-center flex-wrap">
+        <select name="maquina_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">Todas las máquinas</option>
+            {% for m in maquinas %}
+            <option value="{{ m.id }}" {% if filtro_maquina == m.id|string %}selected{% endif %}>{{ m.nombre }}</option>
+            {% endfor %}
+        </select>
+        <select name="anio" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">Todos los años</option>
+            {% for a in anios_revision %}
+            <option value="{{ a }}" {% if filtro_anio == a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    <div class="card-body p-0">
+        {% if revisiones %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 small align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Máquina</th>
+                        <th>Tipo</th>
+                        <th class="d-none d-md-table-cell">Taller</th>
+                        <th class="text-end d-none d-md-table-cell">Coste</th>
+                        <th>Próxima</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in revisiones %}
+                    <tr>
+                        <td class="text-muted">{{ r.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td class="fw-semibold">{{ r.maquina.nombre if r.maquina else '—' }}</td>
+                        <td>{{ r.tipo_revision }}</td>
+                        <td class="d-none d-md-table-cell text-muted">{{ r.taller or '—' }}</td>
+                        <td class="text-end d-none d-md-table-cell text-muted">
+                            {{ "%.2f €"|format(r.coste) if r.coste is not none else '—' }}
+                        </td>
+                        <td>
+                            {% if r.proxima_fecha %}
+                            {% set dias = (r.proxima_fecha - hoy).days %}
+                            <span class="{% if dias < 0 %}text-danger{% elif dias <= 14 %}text-warning fw-semibold{% else %}text-muted{% endif %}">
+                                {{ r.proxima_fecha.strftime('%d/%m/%Y') }}
+                            </span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditRevision{{ r.id }}" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="post" action="/maquinaria/revision/{{ r.id }}/eliminar" class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar esta revisión?')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Modal editar revisión -->
+                    <div class="modal fade" id="modalEditRevision{{ r.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar revisión</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/maquinaria/revision/{{ r.id }}/editar">
+                                    <div class="modal-body">
+                                        <div class="row g-2">
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label small fw-semibold">Máquina <span class="text-danger">*</span></label>
+                                                <select name="maquina_id" class="form-select form-select-sm" required>
+                                                    {% for m in maquinas %}
+                                                    <option value="{{ m.id }}" {% if m.id == r.maquina_id %}selected{% endif %}>{{ m.nombre }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                                                <input type="date" name="fecha" class="form-control form-control-sm"
+                                                       value="{{ r.fecha.isoformat() }}" required>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold">Horas / Km</label>
+                                                <input type="number" step="0.1" name="horas_km" class="form-control form-control-sm"
+                                                       value="{{ r.horas_km if r.horas_km is not none else '' }}">
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label small fw-semibold">Tipo de revisión <span class="text-danger">*</span></label>
+                                                <input type="text" name="tipo_revision" class="form-control form-control-sm" list="listaTiposRevision"
+                                                       value="{{ r.tipo_revision }}" required>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold">Taller / proveedor</label>
+                                                <input type="text" name="taller" class="form-control form-control-sm" list="listaTalleres"
+                                                       value="{{ r.taller or '' }}">
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold">Coste (€)</label>
+                                                <input type="number" step="0.01" min="0" name="coste" class="form-control form-control-sm"
+                                                       value="{{ r.coste if r.coste is not none else '' }}">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Trabajo realizado</label>
+                                                <input type="text" name="descripcion" class="form-control form-control-sm" value="{{ r.descripcion or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Nº factura</label>
+                                                <input type="text" name="num_factura" class="form-control form-control-sm" value="{{ r.num_factura or '' }}">
+                                            </div>
+                                            <div class="col-6"></div>
+                                            <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Próxima revisión</small></div>
+                                            <div class="col-6">
+                                                <label class="form-label small">Cada (meses)</label>
+                                                <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm"
+                                                       value="{{ r.periodicidad_meses or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small">Próxima fecha</label>
+                                                <input type="date" name="proxima_fecha" class="form-control form-control-sm"
+                                                       value="{{ r.proxima_fecha.isoformat() if r.proxima_fecha else '' }}">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small">Observaciones</label>
+                                                <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ r.observaciones or '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            <i class="bi bi-clock-history fs-3 d-block mb-2 opacity-25"></i>
+            Sin revisiones registradas
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Nueva máquina -->
+<div class="modal fade" id="modalMaquina" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-truck-front me-2 text-success"></i>Nueva máquina</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/maquinaria/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" class="form-control form-control-sm" required placeholder="Ej: Tractor John Deere">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Tipo</label>
+                            <input type="text" name="tipo" class="form-control form-control-sm" placeholder="Tractor, remolque, segadora…">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Matrícula</label>
+                            <input type="text" name="matricula" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Marca</label>
+                            <input type="text" name="marca" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Modelo</label>
+                            <input type="text" name="modelo" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Nº de serie</label>
+                            <input type="text" name="num_serie" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha de compra</label>
+                            <input type="date" name="fecha_compra" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar máquina</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva revisión -->
+<div class="modal fade" id="modalRevision" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-wrench-adjustable me-2 text-success"></i>Registrar revisión</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/maquinaria/revision/nueva">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Máquina <span class="text-danger">*</span></label>
+                            <select name="maquina_id" id="selectMaquinaRevision" class="form-select form-select-sm" required>
+                                <option value="">— Selecciona máquina —</option>
+                                {% for m in maquinas %}
+                                <option value="{{ m.id }}">{{ m.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Horas / Km</label>
+                            <input type="number" step="0.1" name="horas_km" class="form-control form-control-sm" placeholder="Ej: 1250">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Tipo de revisión <span class="text-danger">*</span></label>
+                            <input type="text" name="tipo_revision" class="form-control form-control-sm" list="listaTiposRevision" required
+                                   placeholder="Ej: Revisión periódica, ITV, Cambio de aceite…">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Taller / proveedor</label>
+                            <input type="text" name="taller" class="form-control form-control-sm" list="listaTalleres">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Coste (€)</label>
+                            <input type="number" step="0.01" min="0" name="coste" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Trabajo realizado</label>
+                            <input type="text" name="descripcion" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Nº factura</label>
+                            <input type="text" name="num_factura" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6"></div>
+                        <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Próxima revisión</small></div>
+                        <div class="col-6">
+                            <label class="form-label small">Cada (meses)</label>
+                            <input type="number" min="1" name="periodicidad_meses" class="form-control form-control-sm" placeholder="Ej: 12">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Próxima fecha (opcional)</label>
+                            <input type="date" name="proxima_fecha" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Si indicas periodicidad, la próxima fecha se calcula automáticamente
+                    </small>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<datalist id="listaTiposRevision">
+    {% for t in tipos_usados %}<option value="{{ t }}">{% endfor %}
+</datalist>
+<datalist id="listaTalleres">
+    {% for t in talleres_usados %}<option value="{{ t }}">{% endfor %}
+</datalist>
+
+{% endblock %}

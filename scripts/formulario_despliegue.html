@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nueva instalación — GranjaManager</title>
+<style>
+  :root {
+    --bg: #f6f4ee;
+    --surface: #ffffff;
+    --ink: #22281f;
+    --muted: #5b6357;
+    --border: #ddd8c8;
+    --accent: #2f5233;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4ead9;
+    --focus: #3d6bb3;
+    --danger: #a6402f;
+    --ok: #2f7a4f;
+    --term-bg: #171e18;
+    --term-ink: #d9e8d3;
+    --term-accent: #7fd88f;
+    --term-muted: #7c8b78;
+    --shadow: 0 1px 2px rgba(30, 40, 25, 0.06), 0 8px 24px -12px rgba(30, 40, 25, 0.18);
+  }
+  :root[data-theme="dark"] {
+    --bg: #12160f;
+    --surface: #1a201a;
+    --ink: #e7ece2;
+    --muted: #98a290;
+    --border: #2b3327;
+    --accent: #7fc98f;
+    --accent-ink: #10160f;
+    --accent-soft: #223022;
+    --focus: #7fb0f0;
+    --danger: #e08a76;
+    --ok: #7fc98f;
+    --term-bg: #0d120d;
+    --term-ink: #d9e8d3;
+    --term-accent: #8fe89f;
+    --term-muted: #6e7d6a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12160f;
+      --surface: #1a201a;
+      --ink: #e7ece2;
+      --muted: #98a290;
+      --border: #2b3327;
+      --accent: #7fc98f;
+      --accent-ink: #10160f;
+      --accent-soft: #223022;
+      --focus: #7fb0f0;
+      --danger: #e08a76;
+      --ok: #7fc98f;
+      --term-bg: #0d120d;
+      --term-ink: #d9e8d3;
+      --term-accent: #8fe89f;
+      --term-muted: #6e7d6a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "IBM Plex Sans", "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding: 2.5rem 1.25rem 4rem;
+  }
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+
+  header.page {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.35rem;
+  }
+  header.page .mark {
+    width: 1.6rem; height: 1.6rem;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex: none;
+    transform: translateY(2px);
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  p.lede {
+    color: var(--muted);
+    margin: 0 0 2.25rem;
+    max-width: 62ch;
+    line-height: 1.55;
+    font-size: 0.95rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 1.75rem;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 1.25rem; }
+  .card .body { padding: 1.35rem 1.5rem; }
+  .card h2 {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 1.1rem;
+  }
+
+  label.field {
+    display: block;
+    margin-bottom: 1.15rem;
+  }
+  label.field:last-child { margin-bottom: 0; }
+  label.field span.lbl {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  label.field span.hint {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    line-height: 1.4;
+  }
+  input[type="text"] {
+    width: 100%;
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  input[type="text"]:focus {
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent);
+  }
+  .slug-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .slug-row .proto {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-right: none;
+    padding: 0.55rem 0 0.55rem 0.7rem;
+    border-radius: 8px 0 0 8px;
+    white-space: nowrap;
+  }
+  .slug-row input {
+    border-radius: 0 8px 8px 0;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  .slug-msg {
+    font-size: 0.78rem;
+    margin-top: 0.35rem;
+    min-height: 1.1em;
+  }
+  .slug-msg.ok { color: var(--ok); }
+  .slug-msg.bad { color: var(--danger); }
+
+  .chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.6rem;
+  }
+  .chip {
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 0.65rem 0.8rem 0.65rem 2.35rem;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+    user-select: none;
+  }
+  .chip:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .chip input { position: absolute; opacity: 0; }
+  .chip .box {
+    position: absolute;
+    left: 0.7rem;
+    top: 0.72rem;
+    width: 16px; height: 16px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chip .box svg { opacity: 0; width: 11px; height: 11px; }
+  .chip input:checked ~ .box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .chip input:checked ~ .box svg { opacity: 1; }
+  .chip input:focus-visible ~ .box {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
+  }
+  .chip.checked { border-color: var(--accent); background: var(--accent-soft); }
+  .chip .t { font-size: 0.87rem; font-weight: 600; display: block; }
+  .chip .d { font-size: 0.76rem; color: var(--muted); display: block; margin-top: 0.15rem; line-height: 1.35; }
+
+  .all-toggle {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.6rem;
+  }
+  .all-toggle button {
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.1rem 0.2rem;
+  }
+  .all-toggle button:hover { text-decoration: underline; }
+
+  .switch-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    cursor: pointer;
+  }
+  .switch-row input { margin-top: 0.2rem; flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+  .switch-row .t { font-size: 0.87rem; font-weight: 600; display: block; }
+  .switch-row .d { font-size: 0.78rem; color: var(--muted); display: block; margin-top: 0.15rem; line-height: 1.4; }
+
+  /* Terminal / output panel */
+  .term-wrap { position: sticky; top: 1.5rem; }
+  .term {
+    background: var(--term-bg);
+    color: var(--term-ink);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--term-bg) 60%, #000);
+  }
+  .term .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .term .dot { width: 9px; height: 9px; border-radius: 50%; opacity: 0.55; }
+  .term .dot:nth-child(1) { background: #e0645a; }
+  .term .dot:nth-child(2) { background: #e0b95a; }
+  .term .dot:nth-child(3) { background: #6fbf6f; }
+  .term .titlebar .name {
+    margin-left: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--term-muted);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  .term pre {
+    margin: 0;
+    padding: 1.1rem 1.1rem 1.25rem;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    tab-size: 2;
+  }
+  .term pre .flag { color: var(--term-accent); }
+  .term pre .str { color: #e8d98a; }
+  .term pre .cmt { color: var(--term-muted); }
+  .term pre .cont { color: var(--term-muted); }
+
+  .copy-row {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 1.1rem 1.1rem;
+  }
+  button.copy {
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 7px;
+    padding: 0.45rem 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: opacity 0.12s ease;
+  }
+  button.copy:hover { opacity: 0.88; }
+  button.copy.copied { background: var(--ok); }
+
+  .checklist {
+    margin-top: 1.25rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .checklist .t {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .checklist ul { margin: 0; padding-left: 1.1rem; }
+  .checklist code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    background: var(--accent-soft);
+    color: var(--ink);
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.8em;
+  }
+
+  footer.note {
+    max-width: 62ch;
+    margin: 2.5rem auto 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="page">
+    <span class="mark">🌲</span>
+    <h1>Preparar una instalación nueva</h1>
+  </header>
+  <p class="lede">
+    Rellena los datos del cliente y los módulos que va a usar. Al final tienes
+    el comando exacto de <code>provisionar_cliente.sh</code> listo para copiar
+    y ejecutar en tu terminal — este formulario no crea nada por sí solo, ni
+    toca Fly.io.
+  </p>
+
+  <div class="grid">
+    <!-- Columna izquierda: formulario -->
+    <div>
+      <div class="card">
+        <div class="body">
+          <h2>Cliente</h2>
+
+          <label class="field">
+            <span class="lbl">Nombre de la explotación</span>
+            <input type="text" id="nombre" placeholder="Ganadería Pérez" autocomplete="off">
+            <span class="hint">Se muestra dentro de la app y en el cuaderno de explotación.</span>
+          </label>
+
+          <label class="field">
+            <span class="lbl">Slug de la app (subdominio)</span>
+            <div class="slug-row">
+              <span class="proto">https://</span>
+              <input type="text" id="slug" placeholder="granja-perez" autocomplete="off">
+            </div>
+            <span class="slug-msg" id="slugMsg"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="body">
+          <h2>Módulos</h2>
+          <div class="all-toggle">
+            <button type="button" id="btnTodos">Marcar todos</button>
+          </div>
+          <div class="chips" id="chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="body">
+          <h2>Tipo de instalación</h2>
+          <label class="switch-row">
+            <input type="checkbox" id="demo">
+            <span>
+              <span class="t">Instancia de demostración</span>
+              <span class="d">Datos de ejemplo ficticios, usuario <code>demo</code>/<code>demo1234</code> y se reinicia sola cada noche a las 04:00. Úsalo para enseñar la app a un cliente potencial, no para un cliente real.</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna derecha: comando generado -->
+    <div class="term-wrap">
+      <div class="term">
+        <div class="titlebar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="name">terminal</span>
+        </div>
+        <pre id="output"></pre>
+        <div class="copy-row">
+          <button class="copy" id="btnCopy" type="button">
+            <span id="copyLabel">Copiar comando</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div class="t">Después de ejecutarlo</div>
+        <ul id="checklistItems"></ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    El script tarda unos minutos (crea la app, el volumen persistente y
+    despliega). Cuando el cliente facilite su <code>chat_id</code> de
+    Telegram para las alertas, se añade aparte — ver <code>RUNBOOK.md</code>.
+  </footer>
+</div>
+
+<script>
+  const MODULOS = [
+    { id: "queseria", nombre: "Quesería", desc: "Lotes de queso, curación, ventas. Incluye trazabilidad." },
+    { id: "analisis_leche", nombre: "Análisis de leche", desc: "Importar informes de laboratorio (PDF) y ver su histórico." },
+    { id: "maquinaria", nombre: "Maquinaria", desc: "Máquinas y revisiones, con avisos de próxima revisión." },
+    { id: "alimentacion", nombre: "Alimentación", desc: "Stock de piensos/forraje y raciones por estado productivo." },
+    { id: "economia", nombre: "Economía", desc: "Ventas y gastos. Incluye presupuesto anual." },
+    { id: "cuaderno", nombre: "Cuaderno de explotación", desc: "Datos fiscales, abonos/tratamientos de parcela. Incluye exportaciones SITRAN/ARCA/censo." },
+    { id: "agroturismo", nombre: "Agroturismo y Reservas", desc: "Actividades, alojamientos y reservas con control de aforo. Avisa por Telegram/email." },
+  ];
+
+  const chipsEl = document.getElementById("chips");
+  MODULOS.forEach(m => {
+    const label = document.createElement("label");
+    label.className = "chip checked";
+    label.innerHTML = `
+      <input type="checkbox" value="${m.id}" checked>
+      <span class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="t">${m.nombre}</span>
+      <span class="d">${m.desc}</span>
+    `;
+    const input = label.querySelector("input");
+    input.addEventListener("change", () => {
+      label.classList.toggle("checked", input.checked);
+      render();
+    });
+    chipsEl.appendChild(label);
+  });
+
+  document.getElementById("btnTodos").addEventListener("click", () => {
+    const boxes = chipsEl.querySelectorAll("input");
+    const allChecked = [...boxes].every(b => b.checked);
+    boxes.forEach(b => {
+      b.checked = !allChecked;
+      b.closest(".chip").classList.toggle("checked", b.checked);
+    });
+    render();
+  });
+
+  const nombreEl = document.getElementById("nombre");
+  const slugEl = document.getElementById("slug");
+  const slugMsg = document.getElementById("slugMsg");
+  const demoEl = document.getElementById("demo");
+  let slugTocadoAMano = false;
+
+  function slugify(s) {
+    var diacriticoDesde = String.fromCharCode(768);
+    var diacriticoHasta = String.fromCharCode(879);
+    var quitarDiacriticos = new RegExp("[" + diacriticoDesde + "-" + diacriticoHasta + "]", "g");
+    return s
+      .normalize("NFD")
+      .replace(quitarDiacriticos, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30);
+  }
+
+  nombreEl.addEventListener("input", () => {
+    if (!slugTocadoAMano) {
+      slugEl.value = slugify(nombreEl.value);
+    }
+    render();
+  });
+  slugEl.addEventListener("input", () => {
+    slugTocadoAMano = slugEl.value.length > 0;
+    render();
+  });
+  demoEl.addEventListener("change", render);
+
+  function validarSlug(slug) {
+    if (!slug) return { ok: false, msg: "" };
+    if (slug.length < 3) return { ok: false, msg: "Demasiado corto (mínimo 3 caracteres)." };
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(slug)) {
+      return { ok: false, msg: "Solo minúsculas, números y guiones — no puede empezar ni acabar en guion." };
+    }
+    return { ok: true, msg: `Quedará publicada en https://${slug}.fly.dev` };
+  }
+
+  function esc(s) {
+    return s.replace(/"/g, '\\"');
+  }
+
+  function render() {
+    const nombre = nombreEl.value.trim() || "Ganadería Pérez";
+    const slug = slugEl.value.trim();
+    const v = validarSlug(slug);
+    slugMsg.textContent = v.msg;
+    slugMsg.className = "slug-msg " + (slug ? (v.ok ? "ok" : "bad") : "");
+
+    const marcados = [...chipsEl.querySelectorAll("input")].filter(i => i.checked).map(i => i.value);
+    const total = MODULOS.length;
+    const esDemo = demoEl.checked;
+
+    const slugMostrado = slug || "<slug-app>";
+    let linea = `./scripts/provisionar_cliente.sh ${slugMostrado} "${esc(nombre)}"`;
+    const extras = [];
+    if (esDemo) extras.push("--demo");
+    if (marcados.length > 0 && marcados.length < total) {
+      extras.push(`--modulos=${marcados.join(",")}`);
+    }
+
+    const out = document.getElementById("output");
+    out.innerHTML = "";
+    const cmdSpan = document.createElement("span");
+    cmdSpan.textContent = linea;
+    out.appendChild(cmdSpan);
+    extras.forEach(e => {
+      const cont = document.createElement("span");
+      cont.className = "cont";
+      cont.textContent = " \\\n  ";
+      out.appendChild(cont);
+      const flag = document.createElement("span");
+      flag.className = "flag";
+      flag.textContent = e;
+      out.appendChild(flag);
+    });
+
+    if (marcados.length === 0) {
+      const warn = document.createElement("div");
+      warn.className = "cmt";
+      warn.style.marginTop = "0.8rem";
+      warn.textContent = "# aviso: sin ningún módulo marcado, la instalación solo tendría el núcleo (animales, reproducción, sanidad, lotes, tareas)";
+      out.appendChild(warn);
+    }
+
+    const checklist = document.getElementById("checklistItems");
+    checklist.innerHTML = "";
+    const items = [];
+    if (esDemo) {
+      items.push(`Comprueba <code>https://${slug || "&lt;slug&gt;"}.fly.dev</code> con <code>demo</code> / <code>demo1234</code>.`);
+    } else {
+      items.push(`El primer usuario que entre en <code>https://${slug || "&lt;slug&gt;"}.fly.dev</code> crea la cuenta de administrador (pantalla de configuración inicial).`);
+      items.push(`Cuando el cliente te dé su <code>chat_id</code> de Telegram: <code>fly secrets set TELEGRAM_CHAT_ID=xxxxx --app ${slug || "&lt;slug&gt;"}</code>.`);
+    }
+    items.push(`El slug se añade solo a <code>scripts/clientes.txt</code> para futuros despliegues masivos.`);
+    items.forEach(html => {
+      const li = document.createElement("li");
+      li.innerHTML = html;
+      checklist.appendChild(li);
+    });
+  }
+
+  const btnCopy = document.getElementById("btnCopy");
+  const copyLabel = document.getElementById("copyLabel");
+  btnCopy.addEventListener("click", async () => {
+    const text = document.getElementById("output").innerText;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    copyLabel.textContent = "Copiado ✓";
+    btnCopy.classList.add("copied");
+    setTimeout(() => {
+      copyLabel.textContent = "Copiar comando";
+      btnCopy.classList.remove("copied");
+    }, 1600);
+  });
+
+  render();
+</script>
+</body>
+</html>

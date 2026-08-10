@@ -7,3 +7,4 @@ from models.sanidad import Tratamiento, PlanVacunal
 from models.alimentacion import Alimento, RacionTipo, StockMovimiento, CompraAlimento
 from models.economia import Venta, Gasto
 from models.alerta import Alerta
+from models.cuaderno import ConfigExplotacion, AplicadorFito, EquipoAplicacion

@@ -26,6 +26,12 @@ class Parcela(Base):
     municipio = Column(String(100), nullable=True)
     observaciones = Column(Text, nullable=True)
 
+    # Cuaderno de explotación: uso agrícola
+    especie_cultivo = Column(String(100), nullable=True)    # "Pradera Natural", "Prado"…
+    variedad_cultivo = Column(String(100), nullable=True)
+    regadio = Column(String(10), nullable=True, default="SEC")   # SEC/ASP/LOC/GRA
+    tipo_proteccion = Column(String(10), nullable=True, default="AL")  # AL/M/BP/INV
+
     # Referencia SIGPAC
     provincia_codigo = Column(Integer, nullable=True, default=33)  # 33 = Asturias
     municipio_codigo = Column(Integer, nullable=True)
@@ -88,6 +94,10 @@ class AbonoParcela(Base):
     superficie_ha = Column(Float, nullable=True)
     es_ecologico = Column(Integer, default=1)   # 1=sí, 0=no
     observaciones = Column(Text, nullable=True)
+    # Cuaderno de explotación
+    albaran = Column(String(50), nullable=True)
+    riqueza_npk = Column(String(30), nullable=True)     # e.g., "8-15-15"
+    tipo_fertilizacion = Column(String(5), nullable=True, default="AF")  # F/AF/AC
 
     parcela = relationship("Parcela", back_populates="abonados")
 
@@ -105,6 +115,11 @@ class TratamientoParcela(Base):
     plazo_seguridad_dias = Column(Integer, nullable=True)
     es_ecologico = Column(Integer, default=1)
     observaciones = Column(Text, nullable=True)
+    # Cuaderno de explotación
+    num_registro_fito = Column(String(50), nullable=True)
+    problema_fitosanitario = Column(String(200), nullable=True)
+    eficacia = Column(String(10), nullable=True)    # buena/regular/mala
+    aplicador_nombre = Column(String(200), nullable=True)
 
     parcela = relationship("Parcela", back_populates="tratamientos")
 

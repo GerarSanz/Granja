@@ -9,6 +9,7 @@ from models.animal import Animal, EstadoAnimal, SexoAnimal
 from models.reproduccion import Reproduccion, TipoParto
 from models.usuario import Usuario
 from config import get_settings
+from services.especies import dias_gestacion
 
 router = APIRouter(prefix="/reproduccion", tags=["reproduccion"])
 templates = Jinja2Templates(directory="templates")
@@ -90,19 +91,20 @@ def registrar_cubricion(
     current_user: Usuario = Depends(get_current_user),
 ):
     fecha = date.fromisoformat(fecha_cubricion)
+    animal = db.query(Animal).filter(Animal.crotal == animal_crotal.upper()).first()
+    dias = dias_gestacion(animal.especie if animal else None)
     rep = Reproduccion(
         animal_crotal=animal_crotal.upper(),
         toro_crotal=toro_crotal.upper() or None,
         fecha_cubricion=fecha,
-        fecha_parto_estimada=fecha + timedelta(days=settings.DIAS_GESTACION_BOVINA),
+        fecha_parto_estimada=fecha + timedelta(days=dias),
     )
     db.add(rep)
 
-    animal = db.query(Animal).filter(Animal.crotal == animal_crotal.upper()).first()
     if animal:
         animal.estado = EstadoAnimal.gestante
     db.commit()
-    return RedirectResponse(url="/reproduccion", status_code=302)
+    return RedirectResponse(url="/reproduccion?guardado=1", status_code=302)
 
 
 @router.post("/parto/{rep_id}")
@@ -113,7 +115,7 @@ def registrar_parto(
     ternero_crotal: str = Form(default=""),
     ternero_sexo: str = Form(default=""),
     ternero_peso: str = Form(default=""),
-    ternero_vivo: str = Form(default="1"),
+    ternero_vivo: str = Form(default=""),
     parto_observaciones: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -125,7 +127,7 @@ def registrar_parto(
     rep.parto_fecha = date.fromisoformat(parto_fecha)
     rep.parto_tipo = parto_tipo
     rep.parto_observaciones = parto_observaciones or None
-    rep.ternero_vivo = int(ternero_vivo)
+    rep.ternero_vivo = 1 if ternero_vivo else 0
 
     if ternero_crotal:
         rep.ternero_crotal = ternero_crotal.strip().upper()
@@ -134,6 +136,7 @@ def registrar_parto(
 
         # Crear ficha del ternero si no existe
         if not db.query(Animal).filter(Animal.crotal == rep.ternero_crotal).first():
+            madre_para_cria = db.query(Animal).filter(Animal.crotal == rep.animal_crotal).first()
             ternero = Animal(
                 crotal=rep.ternero_crotal,
                 sexo=ternero_sexo or SexoAnimal.macho,
@@ -141,21 +144,22 @@ def registrar_parto(
                 madre_crotal=rep.animal_crotal,
                 padre_crotal=rep.toro_crotal,
                 estado=EstadoAnimal.ternero,
+                especie_id=madre_para_cria.especie_id if madre_para_cria else None,
                 peso_entrada=float(ternero_peso) if ternero_peso else None,
                 fecha_alta=rep.parto_fecha,
-                lote_id=db.query(Animal).filter(Animal.crotal == rep.animal_crotal).first().lote_id,
+                lote_id=madre_para_cria.lote_id if madre_para_cria else None,
             )
             db.add(ternero)
 
     # Actualizar estado de la madre
     madre = db.query(Animal).filter(Animal.crotal == rep.animal_crotal).first()
-    if madre and parto_tipo != "aborto" and int(ternero_vivo):
+    if madre and parto_tipo != "aborto" and ternero_vivo:
         madre.estado = EstadoAnimal.lactante
     elif madre:
         madre.estado = EstadoAnimal.vacia
 
     db.commit()
-    return RedirectResponse(url="/reproduccion", status_code=302)
+    return RedirectResponse(url="/reproduccion?guardado=1", status_code=302)
 
 
 @router.post("/destete/{rep_id}")
@@ -186,4 +190,4 @@ def registrar_destete(
             ternero.estado = EstadoAnimal.recria
 
     db.commit()
-    return RedirectResponse(url="/reproduccion", status_code=302)
+    return RedirectResponse(url="/reproduccion?guardado=1", status_code=302)

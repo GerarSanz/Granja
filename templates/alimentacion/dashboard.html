@@ -8,7 +8,7 @@
         <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalEntrada">
             <i class="bi bi-plus-lg me-1"></i>Entrada stock
         </button>
-        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCompra">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCompra">
             <i class="bi bi-cart-plus me-1"></i>Compra
         </button>
     </div>
@@ -90,20 +90,14 @@
     {% endif %}
 </div>
 
-<!-- Raciones por estado productivo -->
+<!-- Raciones por estado productivo, por especie -->
+{% if especies_presentes %}
+{% for especie in especies_presentes %}
 <div class="card mb-3">
     <div class="card-header py-2 fw-semibold">
-        <i class="bi bi-table me-2 text-primary"></i>Raciones por estado productivo (kg/animal/día)
+        <i class="bi bi-table me-2 text-primary"></i>Raciones — {{ especie.nombre }} (kg/animal/día)
     </div>
     <div class="card-body p-0">
-        {% set estados_labels = {
-            'gestante': 'Gestante',
-            'lactante': 'Lactante',
-            'vacia': 'Vacía',
-            'semental': 'Semental',
-            'ternero_lactante': 'Ternero lactante',
-            'ternero_destete': 'Ternero post-destete'
-        } %}
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle">
                 <thead class="table-light">
@@ -115,15 +109,16 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for estado_key, estado_label in estados_labels.items() %}
+                    {% for estado_key, estado_label in estados_labels_por_especie[especie.nombre].items() %}
                     <tr>
                         <td class="fw-semibold small">{{ estado_label }}</td>
                         {% for s in stocks %}
-                        {% set racion = raciones | selectattr('estado_productivo', 'equalto', estado_key) | selectattr('alimento_id', 'equalto', s.alimento.id) | first %}
+                        {% set racion = raciones | selectattr('estado_productivo', 'equalto', estado_key) | selectattr('alimento_id', 'equalto', s.alimento.id) | selectattr('especie_id', 'equalto', especie.id) | first %}
                         <td class="text-center">
                             <form method="post" action="/alimentacion/racion" class="d-inline">
                                 <input type="hidden" name="estado_productivo" value="{{ estado_key }}">
                                 <input type="hidden" name="alimento_id" value="{{ s.alimento.id }}">
+                                <input type="hidden" name="especie_id" value="{{ especie.id }}">
                                 <input type="number" step="0.1" min="0" name="kg_por_animal_dia"
                                        class="form-control form-control-sm text-center racion-input"
                                        style="width:70px; display:inline-block;"
@@ -142,6 +137,14 @@
         </div>
     </div>
 </div>
+{% endfor %}
+{% else %}
+<div class="card mb-3">
+    <div class="card-body text-center text-muted py-4">
+        Añade algún animal para configurar sus raciones de alimentación.
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal: Entrada de stock -->
 <div class="modal fade" id="modalEntrada" tabindex="-1">

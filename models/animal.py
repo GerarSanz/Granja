@@ -31,6 +31,7 @@ class Animal(Base):
     madre_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=True)
     padre_crotal = Column(String(20), ForeignKey("animales.crotal"), nullable=True)
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
+    especie_id = Column(Integer, ForeignKey("especies.id"), nullable=True)
     estado = Column(String(20), nullable=False, default=EstadoAnimal.vacia)
     raza = Column(String(100), default="Asturiana de la Montaña")
     peso_entrada = Column(Float, nullable=True)
@@ -40,6 +41,7 @@ class Animal(Base):
     observaciones = Column(Text, nullable=True)
 
     lote = relationship("Lote", back_populates="animales")
+    especie = relationship("Especie")
     reproducciones = relationship(
         "Reproduccion",
         foreign_keys="Reproduccion.animal_crotal",

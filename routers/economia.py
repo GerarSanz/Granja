@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -100,6 +100,50 @@ def nueva_venta(
         animal.motivo_baja = f"Venta — {comprador or 'sin especificar'}"
 
     db.commit()
+    return RedirectResponse(url="/economia?guardado=1", status_code=302)
+
+
+@router.post("/venta/{venta_id}/editar")
+def editar_venta(
+    venta_id: int,
+    animal_crotal: str = Form(...),
+    fecha: str = Form(...),
+    tipo_venta: str = Form(...),
+    kg_peso: str = Form(default=""),
+    precio_kg: str = Form(default=""),
+    importe_total: float = Form(...),
+    comprador: str = Form(default=""),
+    num_factura: str = Form(default=""),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(status_code=404)
+    venta.animal_crotal = animal_crotal.upper()
+    venta.fecha = date.fromisoformat(fecha)
+    venta.tipo_venta = tipo_venta
+    venta.kg_peso = float(kg_peso) if kg_peso else None
+    venta.precio_kg = float(precio_kg) if precio_kg else None
+    venta.importe_total = importe_total
+    venta.comprador = comprador or None
+    venta.num_factura = num_factura or None
+    venta.observaciones = observaciones or None
+    db.commit()
+    return RedirectResponse(url="/economia?guardado=1", status_code=302)
+
+
+@router.post("/venta/{venta_id}/eliminar")
+def eliminar_venta(
+    venta_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if venta:
+        db.delete(venta)
+        db.commit()
     return RedirectResponse(url="/economia", status_code=302)
 
 
@@ -126,4 +170,44 @@ def nuevo_gasto(
     )
     db.add(gasto)
     db.commit()
+    return RedirectResponse(url="/economia?guardado=1", status_code=302)
+
+
+@router.post("/gasto/{gasto_id}/editar")
+def editar_gasto(
+    gasto_id: int,
+    fecha: str = Form(...),
+    categoria: str = Form(...),
+    concepto: str = Form(...),
+    importe: float = Form(...),
+    proveedor: str = Form(default=""),
+    num_factura: str = Form(default=""),
+    observaciones: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    gasto = db.query(Gasto).filter(Gasto.id == gasto_id).first()
+    if not gasto:
+        raise HTTPException(status_code=404)
+    gasto.fecha = date.fromisoformat(fecha)
+    gasto.categoria = categoria
+    gasto.concepto = concepto
+    gasto.importe = importe
+    gasto.proveedor = proveedor or None
+    gasto.num_factura = num_factura or None
+    gasto.observaciones = observaciones or None
+    db.commit()
+    return RedirectResponse(url="/economia?guardado=1", status_code=302)
+
+
+@router.post("/gasto/{gasto_id}/eliminar")
+def eliminar_gasto(
+    gasto_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    gasto = db.query(Gasto).filter(Gasto.id == gasto_id).first()
+    if gasto:
+        db.delete(gasto)
+        db.commit()
     return RedirectResponse(url="/economia", status_code=302)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -6,15 +6,7 @@ from datetime import date, timedelta
 import asyncio
 import httpx
 from database import get_db
-
-
-def _resolver_ip_google(hostname: str) -> str:
-    """Resuelve hostname usando DNS de Google, saltando el DNS de Fly.io."""
-    import dns.resolver as dns_r
-    r = dns_r.Resolver(configure=False)
-    r.nameservers = ["8.8.8.8", "1.1.1.1"]
-    r.lifetime = 5.0
-    return str(r.resolve(hostname, "A")[0])
+from services.ugm import ugm_total
 from auth import get_current_user
 from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
                          AbonoParcela, TratamientoParcela,
@@ -24,6 +16,18 @@ from models.usuario import Usuario
 
 router = APIRouter(prefix="/lotes", tags=["lotes"])
 templates = Jinja2Templates(directory="templates")
+
+# Sugerencias de uso de parcela — se combinan con los valores ya usados en la
+# explotación para el autocompletado (campo libre, no una lista cerrada)
+USOS_PARCELA_SUGERIDOS = [
+    "Pradera / Pasto", "Prado de siega", "Manzanos (pomarada)", "Frutales",
+    "Huerta", "Forraje", "Monte / Bosque", "Barbecho / Descanso",
+]
+
+
+def _usos_disponibles(db: Session) -> list[str]:
+    usados = {r[0] for r in db.query(Parcela.especie_cultivo).filter(Parcela.especie_cultivo.isnot(None)).distinct().all() if r[0]}
+    return sorted(set(USOS_PARCELA_SUGERIDOS) | usados)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -46,13 +50,24 @@ def lista_lotes(
         AsignacionToro.fecha_salida.is_(None)
     ).all()
 
-    # Conteo de animales por lote
+    # Conteo de animales y UGM por lote
     conteo_lotes = {}
+    ugm_lotes = {}
     for lote in lotes:
-        conteo_lotes[lote.id] = db.query(Animal).filter(
+        animales_lote = db.query(Animal).filter(
             Animal.lote_id == lote.id,
             Animal.fecha_baja.is_(None),
-        ).count()
+        ).all()
+        conteo_lotes[lote.id] = len(animales_lote)
+        ugm_lotes[lote.id] = ugm_total(animales_lote, hoy)
+
+    # Densidad UGM/ha de cada parcela con ocupación activa
+    hectareas_parcelas = {p.id: p.hectareas for p in parcelas}
+    densidad_parcelas = {}
+    for oc in ocupaciones_activas:
+        hectareas = hectareas_parcelas.get(oc.parcela_id)
+        if hectareas:
+            densidad_parcelas[oc.parcela_id] = ugm_lotes.get(oc.lote_id, 0) / hectareas
 
     animales_sin_lote = db.query(Animal).filter(
         Animal.lote_id.is_(None),
@@ -71,10 +86,13 @@ def lista_lotes(
         "ocupaciones_activas": ocupaciones_activas,
         "toros_activos": toros_activos,
         "conteo_lotes": conteo_lotes,
+        "ugm_lotes": ugm_lotes,
+        "densidad_parcelas": densidad_parcelas,
         "animales_sin_lote": animales_sin_lote,
         "toros": toros,
         "hoy": hoy,
         "current_user": current_user,
+        "usos_disponibles": _usos_disponibles(db),
     })
 
 
@@ -88,7 +106,7 @@ def crear_lote(
     lote = Lote(nombre=nombre, descripcion=descripcion or None)
     db.add(lote)
     db.commit()
-    return RedirectResponse(url="/lotes", status_code=302)
+    return RedirectResponse(url="/lotes?guardado=1", status_code=302)
 
 
 @router.get("/parcela/{parcela_id}", response_class=HTMLResponse)
@@ -114,6 +132,25 @@ def detalle_parcela(
         SubParcela.parcela_id == parcela_id
     ).order_by(SubParcela.nombre).all()
     lotes = db.query(Lote).order_by(Lote.nombre).all()
+
+    hoy = date.today()
+    ocupacion_actual = next((oc for oc in ocupaciones if oc.fecha_salida is None), None)
+    animales_ocupantes = []
+    ugm_actual = 0.0
+    densidad_actual = None
+    if ocupacion_actual:
+        animales_ocupantes = db.query(Animal).filter(
+            Animal.lote_id == ocupacion_actual.lote_id,
+            Animal.fecha_baja.is_(None),
+        ).all()
+        ugm_actual = ugm_total(animales_ocupantes, hoy)
+        if parcela.hectareas:
+            densidad_actual = ugm_actual / parcela.hectareas
+
+    productos_abono_usados = sorted({r[0] for r in db.query(AbonoParcela.producto).distinct().all() if r[0]})
+    productos_trat_usados = sorted({r[0] for r in db.query(TratamientoParcela.producto).distinct().all() if r[0]})
+    dosis_trat_usadas = sorted({r[0] for r in db.query(TratamientoParcela.dosis).distinct().all() if r[0]})
+
     return templates.TemplateResponse("lotes/parcela.html", {
         "request": request,
         "parcela": parcela,
@@ -122,9 +159,16 @@ def detalle_parcela(
         "tratamientos_parcela": tratamientos_parcela,
         "subparcelas": subparcelas,
         "lotes": lotes,
-        "hoy": date.today(),
+        "n_animales_ocupantes": len(animales_ocupantes),
+        "ugm_actual": ugm_actual,
+        "densidad_actual": densidad_actual,
+        "hoy": hoy,
         "timedelta": timedelta,
+        "productos_abono_usados": productos_abono_usados,
+        "productos_trat_usados": productos_trat_usados,
+        "dosis_trat_usadas": dosis_trat_usadas,
         "current_user": current_user,
+        "usos_disponibles": _usos_disponibles(db),
     })
 
 
@@ -140,6 +184,10 @@ def editar_parcela(
     poligono: str = Form(default=""),
     parcela_sigpac: str = Form(default=""),
     observaciones: str = Form(default=""),
+    especie_cultivo: str = Form(default=""),
+    variedad_cultivo: str = Form(default=""),
+    regadio: str = Form(default="SEC"),
+    tipo_proteccion: str = Form(default="AL"),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -155,8 +203,27 @@ def editar_parcela(
     p.poligono = int(poligono) if poligono else None
     p.parcela_sigpac = int(parcela_sigpac) if parcela_sigpac else None
     p.observaciones = observaciones or None
+    p.especie_cultivo = especie_cultivo.strip() or None
+    p.variedad_cultivo = variedad_cultivo.strip() or None
+    p.regadio = regadio or "SEC"
+    p.tipo_proteccion = tipo_proteccion or "AL"
     db.commit()
     return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+
+
+@router.post("/parcela/{parcela_id}/eliminar")
+def eliminar_parcela(
+    parcela_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    p = db.query(Parcela).filter(Parcela.id == parcela_id).first()
+    if not p:
+        raise HTTPException(status_code=404)
+    db.query(OcupacionParcela).filter(OcupacionParcela.parcela_id == parcela_id).delete()
+    db.delete(p)
+    db.commit()
+    return RedirectResponse(url="/lotes", status_code=302)
 
 
 @router.get("/parcela/{parcela_id}/sigpac")
@@ -216,6 +283,8 @@ def crear_parcela(
     municipio_codigo: str = Form(default=""),
     poligono: str = Form(default=""),
     parcela_sigpac: str = Form(default=""),
+    especie_cultivo: str = Form(default=""),
+    variedad_cultivo: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -228,6 +297,8 @@ def crear_parcela(
         municipio_codigo=int(municipio_codigo) if municipio_codigo else None,
         poligono=int(poligono) if poligono else None,
         parcela_sigpac=int(parcela_sigpac) if parcela_sigpac else None,
+        especie_cultivo=especie_cultivo.strip() or None,
+        variedad_cultivo=variedad_cultivo.strip() or None,
     )
     db.add(p)
     db.commit()
@@ -257,7 +328,7 @@ def nueva_ocupacion(
     )
     db.add(oc)
     db.commit()
-    return RedirectResponse(url="/lotes", status_code=302)
+    return RedirectResponse(url="/lotes?guardado=1", status_code=302)
 
 
 @router.post("/toro/asignar")
@@ -283,7 +354,7 @@ def asignar_toro(
     )
     db.add(at)
     db.commit()
-    return RedirectResponse(url="/lotes", status_code=302)
+    return RedirectResponse(url="/lotes?guardado=1", status_code=302)
 
 
 @router.post("/toro/{asignacion_id}/retirar")
@@ -309,8 +380,11 @@ def nuevo_abono(
     cantidad: str = Form(default=""),
     unidad: str = Form(default=""),
     superficie_ha: str = Form(default=""),
-    es_ecologico: str = Form(default="1"),
+    es_ecologico: str = Form(default=""),
     observaciones: str = Form(default=""),
+    albaran: str = Form(default=""),
+    riqueza_npk: str = Form(default=""),
+    tipo_fertilizacion: str = Form(default="AF"),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -327,9 +401,12 @@ def nuevo_abono(
         superficie_ha=float(superficie_ha) if superficie_ha else parcela.hectareas,
         es_ecologico=1 if es_ecologico else 0,
         observaciones=observaciones.strip() or None,
+        albaran=albaran.strip() or None,
+        riqueza_npk=riqueza_npk.strip() or None,
+        tipo_fertilizacion=tipo_fertilizacion or "AF",
     ))
     db.commit()
-    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}?guardado=1", status_code=302)
 
 
 @router.post("/parcela/{parcela_id}/abono/{abono_id}/eliminar")
@@ -355,8 +432,12 @@ def nuevo_tratamiento_parcela(
     dosis: str = Form(default=""),
     superficie_ha: str = Form(default=""),
     plazo_seguridad_dias: str = Form(default=""),
-    es_ecologico: str = Form(default="1"),
+    es_ecologico: str = Form(default=""),
     observaciones: str = Form(default=""),
+    num_registro_fito: str = Form(default=""),
+    problema_fitosanitario: str = Form(default=""),
+    eficacia: str = Form(default=""),
+    aplicador_nombre: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -373,9 +454,13 @@ def nuevo_tratamiento_parcela(
         plazo_seguridad_dias=int(plazo_seguridad_dias) if plazo_seguridad_dias else None,
         es_ecologico=1 if es_ecologico else 0,
         observaciones=observaciones.strip() or None,
+        num_registro_fito=num_registro_fito.strip() or None,
+        problema_fitosanitario=problema_fitosanitario.strip() or None,
+        eficacia=eficacia or None,
+        aplicador_nombre=aplicador_nombre.strip() or None,
     ))
     db.commit()
-    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}", status_code=302)
+    return RedirectResponse(url=f"/lotes/parcela/{parcela_id}?guardado=1", status_code=302)
 
 
 @router.post("/parcela/{parcela_id}/tratamiento/{trat_id}/eliminar")

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}Quesería — GranjaManager{% endblock %}
+{% block content %}
+
+{% set TIPO_LABEL = {'fresco':'Fresco','tierno':'Tierno','semicurado':'Semicurado','curado':'Curado','afuega_el_pitu':"Afuega'l Pitu",'otro':'Otro'} %}
+
+{% macro ubicacion(lote) %}
+{% if lote.estanteria or lote.fila or lote.columna %}
+<span class="small">{{ lote.estanteria or '—' }}{% if lote.fila %} · F{{ lote.fila }}{% endif %}{% if lote.columna %} · C{{ lote.columna }}{% endif %}</span>
+{% else %}
+<span class="text-muted">—</span>
+{% endif %}
+{% endmacro %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-egg-fried me-2"></i>Quesería</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCuajos">
+            <i class="bi bi-droplet-half me-1"></i>Cuajos
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstanterias">
+            <i class="bi bi-grid-3x3-gap me-1"></i>Estanterías
+        </button>
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoLote">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo lote
+        </button>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-success">{{ "%.1f"|format(total_kg_stock) }} kg</div>
+            <div class="kpi-label">Stock actual</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-primary">{{ "%.1f"|format(total_kg_vendido_anio) }} kg</div>
+            <div class="kpi-label">Vendido {{ hoy.year }}</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-success">{{ "%.0f €"|format(total_ingresos_anio) }}</div>
+            <div class="kpi-label">Ingresos {{ hoy.year }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- En proceso -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 bg-warning bg-opacity-10 fw-semibold">
+                <i class="bi bi-hourglass-split me-2 text-warning"></i>En proceso
+                <span class="badge bg-warning text-dark ms-1">{{ en_curacion | length }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if en_curacion %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Lote</th>
+                                <th>Tipo</th>
+                                <th>Elaboración</th>
+                                <th>Etapa</th>
+                                <th>Curación</th>
+                                <th>Ubicación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in en_curacion %}
+                            <tr onclick="window.location='/queseria/lote/{{ r.lote.id }}'">
+                                <td class="fw-semibold">{{ r.lote.codigo }}</td>
+                                <td class="text-muted">{{ TIPO_LABEL.get(r.lote.tipo_queso, r.lote.tipo_queso) }}</td>
+                                <td class="text-muted">{{ r.lote.fecha_elaboracion.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <span class="badge {% if r.lote.etapa == 'cuajado' %}bg-secondary{% elif r.lote.etapa == 'moldeado' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %}">
+                                        {{ etapa_label.get(r.lote.etapa, r.lote.etapa) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if r.dias_para_listo is none %}
+                                    <span class="text-muted">—</span>
+                                    {% elif r.dias_para_listo <= 0 %}
+                                    <span class="badge bg-success">Cumplida</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark border">{{ r.dias_para_listo }}d</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ ubicacion(r.lote) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin lotes en proceso</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Listos para vender -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 bg-success bg-opacity-10 fw-semibold">
+                <i class="bi bi-check-circle me-2 text-success"></i>Listos para vender
+                <span class="badge bg-success ms-1">{{ listos | length }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if listos %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Lote</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Piezas</th>
+                                <th class="text-end">Peso</th>
+                                <th>Ubicación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in listos %}
+                            <tr onclick="window.location='/queseria/lote/{{ r.lote.id }}'">
+                                <td class="fw-semibold">{{ r.lote.codigo }}</td>
+                                <td class="text-muted">{{ TIPO_LABEL.get(r.lote.tipo_queso, r.lote.tipo_queso) }}</td>
+                                <td class="text-end">{{ r.piezas_disponibles }}</td>
+                                <td class="text-end">{{ "%.1f"|format(r.peso_disponible_kg) }} kg</td>
+                                <td>{{ ubicacion(r.lote) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin lotes listos para vender</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Agotados -->
+    {% if agotados %}
+    <div class="col-12">
+        <div class="card">
+            <div class="d-flex align-items-center px-3 py-2">
+                <button class="btn btn-link text-start flex-grow-1 d-flex align-items-center gap-2 p-0 text-decoration-none"
+                        style="color:inherit" data-bs-toggle="collapse" data-bs-target="#agotadosCollapse">
+                    <i class="bi bi-archive text-muted"></i>
+                    <span class="fw-semibold small">{{ agotados | length }} lotes agotados</span>
+                    <i class="bi bi-chevron-down text-muted small ms-1"></i>
+                </button>
+            </div>
+            <div class="collapse" id="agotadosCollapse">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Lote</th>
+                                <th>Tipo</th>
+                                <th>Elaboración</th>
+                                <th class="text-end">Piezas iniciales</th>
+                                <th class="text-end">Peso inicial</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in agotados %}
+                            <tr onclick="window.location='/queseria/lote/{{ r.lote.id }}'">
+                                <td class="fw-semibold">{{ r.lote.codigo }}</td>
+                                <td class="text-muted">{{ TIPO_LABEL.get(r.lote.tipo_queso, r.lote.tipo_queso) }}</td>
+                                <td class="text-muted">{{ r.lote.fecha_elaboracion.strftime('%d/%m/%Y') }}</td>
+                                <td class="text-end">{{ r.lote.num_piezas_inicial }}</td>
+                                <td class="text-end">{{ "%.1f"|format(r.lote.peso_inicial_kg) }} kg</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Gestionar cuajos -->
+<div class="modal fade" id="modalCuajos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-droplet-half me-2 text-primary"></i>Cuajos</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if cuajo_productos %}
+                <div class="table-responsive mb-2">
+                    <table class="table table-sm mb-0 small align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Marca</th>
+                                <th>Registro sanitario</th>
+                                <th>Frasco actual</th>
+                                <th>Caducidad</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in cuajo_productos %}
+                            <tr>
+                                <td class="fw-semibold">{{ p.marca }}</td>
+                                <td class="text-muted">{{ p.registro_sanitario or '—' }}</td>
+                                <td class="text-muted">{{ p.lote_actual or '—' }}</td>
+                                <td class="text-muted">{{ p.caducidad_actual.strftime('%d/%m/%Y') if p.caducidad_actual else '—' }}</td>
+                                <td class="text-end">
+                                    <form method="post" action="/queseria/cuajo-producto/{{ p.id }}/eliminar"
+                                          onsubmit="return confirm('¿Eliminar el producto de cuajo «{{ p.marca }}»?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted small">Sin productos de cuajo definidos todavía.</p>
+                {% endif %}
+                <hr class="my-2">
+                <p class="small fw-semibold mb-2">Añadir producto</p>
+                <form method="post" action="/queseria/cuajo-producto/nuevo" class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label small">Marca / producto <span class="text-danger">*</span></label>
+                        <input type="text" name="marca" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small">Nº registro sanitario</label>
+                        <input type="text" name="registro_sanitario" class="form-control form-control-sm" placeholder="RGSEAA...">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small">Frasco / lote actual</label>
+                        <input type="text" name="lote_actual" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small">Caducidad</label>
+                        <input type="date" name="caducidad_actual" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-outline-success btn-sm w-100">
+                            <i class="bi bi-plus-lg me-1"></i>Añadir
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Gestionar estanterías -->
+<div class="modal fade" id="modalEstanterias" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-grid-3x3-gap me-2 text-secondary"></i>Estanterías</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if estanterias %}
+                <ul class="list-group list-group-flush mb-2">
+                    {% for e in estanterias %}
+                    <li class="list-group-item py-2 d-flex align-items-center justify-content-between">
+                        <span class="small">{{ e.nombre }}</span>
+                        <form method="post" action="/queseria/estanteria/{{ e.id }}/eliminar"
+                              onsubmit="return confirm('¿Eliminar la estantería «{{ e.nombre }}»?')">
+                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted small">Sin estanterías definidas todavía.</p>
+                {% endif %}
+                <form method="post" action="/queseria/estanteria/nueva" class="d-flex gap-2">
+                    <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej: Cámara 1 - A" required>
+                    <button type="submit" class="btn btn-outline-success btn-sm text-nowrap">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo lote -->
+<div class="modal fade" id="modalNuevoLote" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-egg-fried me-2 text-success"></i>Nuevo lote de queso</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/queseria/lote/nuevo">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Fecha elaboración <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_elaboracion" class="form-control form-control-sm"
+                                   value="{{ hoy.isoformat() }}" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Ordeño <span class="text-danger">*</span></label>
+                            <select name="turno_ordeno" class="form-select form-select-sm" required>
+                                <option value="" selected disabled>—</option>
+                                <option value="manana">Mañana</option>
+                                <option value="tarde">Tarde</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Litros de leche</label>
+                            <input type="number" step="0.1" min="0" name="litros_leche" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold">Tipo de queso</label>
+                            <select name="tipo_queso" class="form-select form-select-sm">
+                                {% for t in tipos_queso %}
+                                <option value="{{ t.value }}" {% if t.value == 'curado' %}selected{% endif %}>
+                                    {{ TIPO_LABEL.get(t.value, t.value) }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-semibold">Días de curación previstos</label>
+                            <input type="number" min="0" name="dias_curacion_objetivo" class="form-control form-control-sm" placeholder="Ej: 60">
+                            <div class="form-text">Solo orientativo — se puede fijar o ajustar al iniciar la curación.</div>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Las piezas/moldes se registrarán al pasar
+                            a molde, y el peso más adelante, cuando se conozca (al terminar la curación, para los quesos curados).</small>
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <label class="form-label small fw-semibold mb-1"><i class="bi bi-droplet-half me-1"></i>Cuajo empleado (trazabilidad sanitaria)</label>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Producto <span class="text-danger">*</span></label>
+                            <select name="cuajo_producto_id" id="selectCuajoProducto" class="form-select form-select-sm"
+                                    required onchange="rellenarCuajo(this)">
+                                <option value="" {% if cuajo_productos|length != 1 %}selected{% endif %} disabled>— Selecciona —</option>
+                                {% for p in cuajo_productos %}
+                                <option value="{{ p.id }}"
+                                        {% if cuajo_productos|length == 1 %}selected{% endif %}
+                                        data-lote="{{ p.lote_actual or '' }}"
+                                        data-caducidad="{{ p.caducidad_actual.isoformat() if p.caducidad_actual else '' }}">
+                                    {{ p.marca }}{% if p.registro_sanitario %} ({{ p.registro_sanitario }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if not cuajo_productos %}
+                            <div class="form-text">Todavía no hay productos de cuajo definidos — usa el botón "Cuajos" en la cabecera.</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Lote del cuajo (frasco) <span class="text-danger">*</span></label>
+                            <input type="text" name="cuajo_lote" id="inputCuajoLote" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Caducidad <span class="text-danger">*</span></label>
+                            <input type="date" name="cuajo_caducidad" id="inputCuajoCaducidad" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">Se precargan del último frasco usado de este producto — edítalos si has abierto uno nuevo.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <label class="form-label small fw-semibold">Vacas de origen (trazabilidad de la leche)</label>
+                            <div class="border rounded p-2" style="max-height:160px; overflow-y:auto;">
+                                {% if vacas %}
+                                {% for v in vacas %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="animales_crotales"
+                                           value="{{ v.crotal }}" id="vaca{{ v.crotal }}"
+                                           {% if v.estado == 'lactante' %}checked{% endif %}>
+                                    <label class="form-check-label small" for="vaca{{ v.crotal }}">
+                                        {{ v.display_name }} ({{ v.crotal }})
+                                        <span class="badge bg-light text-dark border">{{ v.estado | capitalize }}</span>
+                                        {% if v.crotal in crotales_en_espera %}
+                                        <span class="badge bg-danger" title="Tiene un tratamiento con tiempo de espera activo">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> En espera veterinaria
+                                        </span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <div class="text-muted small">Sin vacas registradas.</div>
+                                {% endif %}
+                            </div>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Las vacas marcadas en rojo tienen un tratamiento veterinario con tiempo de espera
+                                todavía activo — su leche no debería usarse para elaborar queso hasta que termine.
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="es_ecologico" value="1" id="ecoQueso" checked>
+                                <label class="form-check-label small" for="ecoQueso">
+                                    <i class="bi bi-leaf-fill text-success me-1"></i>Producto ecológico
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var hoy = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('.modal input[type="date"]').forEach(function(el) {
+        if (!el.value) el.value = hoy;
+    });
+    var selectCuajo = document.getElementById('selectCuajoProducto');
+    if (selectCuajo && selectCuajo.value) {
+        rellenarCuajo(selectCuajo);
+    }
+});
+function rellenarCuajo(select) {
+    var opt = select.options[select.selectedIndex];
+    document.getElementById('inputCuajoLote').value = opt.getAttribute('data-lote') || '';
+    document.getElementById('inputCuajoCaducidad').value = opt.getAttribute('data-caducidad') || '';
+}
+</script>
+{% endblock %}

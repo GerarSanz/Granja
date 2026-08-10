@@ -4,13 +4,17 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import date
+from urllib.parse import urlencode
 from database import get_db
 from auth import get_current_user
 from models.animal import Animal, EstadoAnimal, SexoAnimal
 from models.lote import Lote
 from models.maestros import Raza, Especie
 from services.importacion import parsear_excel, parsear_csv, generar_plantilla_excel
+from services.especies import CRIA_LABEL
+from services.animal_foto import foto_url, guardar_foto, eliminar_foto, MAX_FOTO_BYTES
 from models.reproduccion import Reproduccion
+from models.sanidad import Desparasitacion
 from models.usuario import Usuario
 
 router = APIRouter(prefix="/animales", tags=["animales"])
@@ -23,6 +27,7 @@ def lista_animales(
     estado: str = None,
     sexo: str = None,
     lote_id: str = None,
+    especie_id: str = None,
     buscar: str = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -36,21 +41,61 @@ def lista_animales(
         q = q.filter(Animal.lote_id.is_(None))
     elif lote_id:
         q = q.filter(Animal.lote_id == int(lote_id))
+    if especie_id:
+        q = q.filter(Animal.especie_id == int(especie_id))
     if buscar:
         q = q.filter(or_(Animal.crotal.contains(buscar), Animal.nombre.contains(buscar)))
     animales = q.order_by(Animal.crotal).all()
     lotes = db.query(Lote).all()
+    especies = db.query(Especie).order_by(Especie.nombre).all()
     return templates.TemplateResponse("animales/lista.html", {
         "request": request,
         "animales": animales,
         "lotes": lotes,
+        "especies": especies,
         "estados": EstadoAnimal,
         "filtro_estado": estado,
         "filtro_sexo": sexo,
         "filtro_lote": lote_id,
+        "filtro_especie": especie_id,
         "buscar": buscar,
+        "cria_label": CRIA_LABEL,
         "current_user": current_user,
     })
+
+
+@router.post("/mover-lote")
+def mover_lote(
+    crotales: list[str] = Form(default=[]),
+    lote_id: str = Form(default=""),
+    f_buscar: str = Form(default=""),
+    f_estado: str = Form(default=""),
+    f_sexo: str = Form(default=""),
+    f_lote: str = Form(default=""),
+    f_especie: str = Form(default=""),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if crotales:
+        nuevo_lote_id = int(lote_id) if lote_id else None
+        animales = db.query(Animal).filter(Animal.crotal.in_([c.upper() for c in crotales])).all()
+        for a in animales:
+            a.lote_id = nuevo_lote_id
+        db.commit()
+
+    params = {}
+    if f_buscar:
+        params["buscar"] = f_buscar
+    if f_estado:
+        params["estado"] = f_estado
+    if f_sexo:
+        params["sexo"] = f_sexo
+    if f_lote:
+        params["lote_id"] = f_lote
+    if f_especie:
+        params["especie_id"] = f_especie
+    url = f"/animales?{urlencode(params)}" if params else "/animales"
+    return RedirectResponse(url=url, status_code=302)
 
 
 @router.get("/nuevo", response_class=HTMLResponse)
@@ -81,7 +126,7 @@ def crear_animal(
     crotal: str = Form(...),
     nombre: str = Form(default=""),
     sexo: str = Form(...),
-    raza: str = Form(default="Asturiana de la Montaña"),
+    raza_id: str = Form(default=""),
     fecha_nacimiento: str = Form(default=""),
     madre_crotal: str = Form(default=""),
     padre_crotal: str = Form(default=""),
@@ -101,11 +146,14 @@ def crear_animal(
             "estados": EstadoAnimal,
         }, status_code=400)
 
+    raza_obj = db.query(Raza).filter(Raza.id == int(raza_id)).first() if raza_id else None
+
     animal = Animal(
         crotal=crotal.strip().upper(),
         nombre=nombre.strip() or None,
         sexo=sexo,
-        raza=raza.strip() or "Asturiana de la Montaña",
+        raza=raza_obj.nombre if raza_obj else "Asturiana de la Montaña",
+        especie_id=raza_obj.especie_id if raza_obj else None,
         fecha_nacimiento=date.fromisoformat(fecha_nacimiento) if fecha_nacimiento else None,
         madre_crotal=madre_crotal.strip().upper() or None,
         padre_crotal=padre_crotal.strip().upper() or None,
@@ -117,12 +165,16 @@ def crear_animal(
     )
     db.add(animal)
     db.commit()
-    return RedirectResponse(url=f"/animales/{animal.crotal}", status_code=302)
+    return RedirectResponse(url=f"/animales/{animal.crotal}?guardado=1", status_code=302)
 
 
 # ── Importación masiva ────────────────────────────────────────────────────────
 # IMPORTANTE: estos endpoints deben ir ANTES de /{crotal} para que FastAPI
 # no interprete "importar" como un valor de crotal.
+
+# Guarda el fichero subido en el preview para que la confirmación no obligue
+# a volver a seleccionarlo — se guarda por usuario y se descarta al confirmar.
+_import_cache: dict[int, tuple[str, bytes]] = {}
 
 @router.get("/importar/plantilla")
 def descargar_plantilla(current_user: Usuario = Depends(get_current_user)):
@@ -177,6 +229,8 @@ async def importar_preview(
         if f.crotal in crotales_existentes:
             f.errores.append(f"El crotal {f.crotal} ya existe en la base de datos")
 
+    _import_cache[current_user.id] = (archivo.filename, contenido)
+
     lotes = db.query(Lote).all()
     return templates.TemplateResponse("animales/importar.html", {
         "request": request,
@@ -191,15 +245,22 @@ async def importar_preview(
 
 
 @router.post("/importar/confirmar")
-async def importar_confirmar(
+def importar_confirmar(
     request: Request,
-    archivo: UploadFile = File(...),
     lote_defecto_id: str = Form(default=""),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    contenido = await archivo.read()
-    nombre = archivo.filename.lower()
+    cached = _import_cache.pop(current_user.id, None)
+    if not cached:
+        lotes = db.query(Lote).all()
+        return templates.TemplateResponse("animales/importar.html", {
+            "request": request, "lotes": lotes, "current_user": current_user,
+            "error": "El fichero ya no está disponible (o ha pasado demasiado tiempo) — vuelve a subirlo.",
+            "preview": None,
+        })
+    nombre_archivo, contenido = cached
+    nombre = nombre_archivo.lower()
 
     if nombre.endswith(".xlsx") or nombre.endswith(".xls"):
         filas = parsear_excel(contenido)
@@ -270,21 +331,66 @@ def ficha_animal(
     ).order_by(Reproduccion.fecha_cubricion.desc()).all()
     lotes = db.query(Lote).all()
     especies = db.query(Especie).order_by(Especie.nombre).all()
+
+    tratamientos_animal = sorted(animal.tratamientos, key=lambda t: t.fecha, reverse=True)
+    desparasitaciones_rebano = db.query(Desparasitacion).filter(Desparasitacion.aplica_todo_rebano == True).all()
+    desparasitaciones_animal = sorted(
+        list(animal.desparasitaciones) + desparasitaciones_rebano,
+        key=lambda d: d.fecha, reverse=True,
+    )
+
     return templates.TemplateResponse("animales/ficha.html", {
         "request": request,
         "animal": animal,
         "reproducciones": reproducciones,
         "lotes": lotes,
         "especies": especies,
+        "cria_label": CRIA_LABEL,
+        "foto_url": foto_url(animal.crotal),
+        "tratamientos_animal": tratamientos_animal,
+        "desparasitaciones_animal": desparasitaciones_animal,
+        "hoy": date.today(),
         "current_user": current_user,
     })
+
+
+@router.post("/{crotal}/foto")
+async def subir_foto_animal(
+    crotal: str,
+    foto: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
+    if not animal:
+        raise HTTPException(status_code=404)
+    if not (foto.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+    contenido = await foto.read()
+    if len(contenido) > MAX_FOTO_BYTES:
+        raise HTTPException(status_code=400, detail="La imagen es demasiado grande (máx. 15 MB)")
+    guardar_foto(animal.crotal, contenido)
+    return RedirectResponse(url=f"/animales/{crotal}?guardado=1", status_code=302)
+
+
+@router.post("/{crotal}/foto/eliminar")
+def eliminar_foto_animal(
+    crotal: str,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    animal = db.query(Animal).filter(Animal.crotal == crotal.upper()).first()
+    if not animal:
+        raise HTTPException(status_code=404)
+    eliminar_foto(animal.crotal)
+    return RedirectResponse(url=f"/animales/{crotal}", status_code=302)
 
 
 @router.post("/{crotal}/editar")
 def editar_animal(
     crotal: str,
     nombre: str = Form(default=""),
-    raza: str = Form(default=""),
+    raza_id: str = Form(default=""),
     estado: str = Form(...),
     lote_id: str = Form(default=""),
     observaciones: str = Form(default=""),
@@ -295,18 +401,23 @@ def editar_animal(
     if not animal:
         raise HTTPException(status_code=404)
     animal.nombre = nombre.strip() or animal.nombre
-    animal.raza = raza.strip() or animal.raza
+    if raza_id:
+        raza_obj = db.query(Raza).filter(Raza.id == int(raza_id)).first()
+        if raza_obj:
+            animal.raza = raza_obj.nombre
+            animal.especie_id = raza_obj.especie_id
     animal.estado = estado
     animal.lote_id = int(lote_id) if lote_id else None
     animal.observaciones = observaciones.strip() or None
     db.commit()
-    return RedirectResponse(url=f"/animales/{crotal}", status_code=302)
+    return RedirectResponse(url=f"/animales/{crotal}?guardado=1", status_code=302)
 
 
 @router.post("/{crotal}/baja")
 def dar_baja(
     crotal: str,
     fecha_baja: str = Form(...),
+    tipo_baja: str = Form(...),
     motivo_baja: str = Form(...),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -316,6 +427,6 @@ def dar_baja(
         raise HTTPException(status_code=404)
     animal.fecha_baja = date.fromisoformat(fecha_baja)
     animal.motivo_baja = motivo_baja
-    animal.estado = EstadoAnimal.vendido if "venta" in motivo_baja.lower() else EstadoAnimal.baja
+    animal.estado = tipo_baja
     db.commit()
-    return RedirectResponse(url="/animales", status_code=302)
+    return RedirectResponse(url="/animales?guardado=1", status_code=302)

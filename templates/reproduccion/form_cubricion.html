@@ -11,9 +11,9 @@
     <div class="card-body">
         <form method="post" action="/reproduccion/cubricion/nueva">
             <div class="mb-3">
-                <label class="form-label fw-semibold">Vaca <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold">Hembra <span class="text-danger">*</span></label>
                 <select name="animal_crotal" class="form-select" required>
-                    <option value="">— Selecciona la vaca —</option>
+                    <option value="">— Selecciona la hembra —</option>
                     {% for h in hembras %}
                     <option value="{{ h.crotal }}"
                         {% if animal_crotal_preseleccionado == h.crotal %}selected{% endif %}>
@@ -24,7 +24,7 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label fw-semibold">Toro</label>
+                <label class="form-label fw-semibold">Macho reproductor</label>
                 <select name="toro_crotal" class="form-select">
                     <option value="">— Monta natural (sin especificar) —</option>
                     {% for t in toros %}
@@ -33,13 +33,13 @@
                     </option>
                     {% endfor %}
                 </select>
-                <div class="form-text">Con un solo toro en el rebaño puedes dejarlo en blanco.</div>
+                <div class="form-text">Con un solo macho en el rebaño puedes dejarlo en blanco.</div>
             </div>
 
             <div class="mb-4">
                 <label class="form-label fw-semibold">Fecha de cubrición <span class="text-danger">*</span></label>
                 <input type="date" name="fecha_cubricion" class="form-control" value="{{ hoy }}" required>
-                <div class="form-text">El parto estimado se calculará automáticamente (+285 días).</div>
+                <div class="form-text">El parto estimado se calculará automáticamente según la especie de la hembra.</div>
             </div>
 
             <div class="d-flex gap-2">

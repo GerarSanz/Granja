@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Análisis de leche — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-droplet-half me-2"></i>Análisis de leche</h5>
+    <div class="d-flex gap-2">
+        <a href="/analisis-leche/importar" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Importar informe PDF
+        </a>
+        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoManual">
+            <i class="bi bi-plus-lg me-1"></i>Manual
+        </button>
+    </div>
+</div>
+
+{% if ultimo %}
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ "%.0f"|format(ultimo.bactoscan) if ultimo.bactoscan is not none else "—" }}</div>
+            <div class="kpi-label">Bactoscan (x1000)</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ "%.0f"|format(ultimo.celulas_somaticas) if ultimo.celulas_somaticas is not none else "—" }}</div>
+            <div class="kpi-label">Células (x1000)</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ "%.2f"|format(ultimo.materia_grasa) if ultimo.materia_grasa is not none else "—" }}%</div>
+            <div class="kpi-label">Materia grasa</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if ultimo.inhibidores == 'Positivo' %}text-danger{% endif %}">
+                {{ ultimo.inhibidores or "—" }}
+            </div>
+            <div class="kpi-label">Inhibidores</div>
+        </div>
+    </div>
+</div>
+<div class="text-muted small mb-3">
+    Último análisis: muestra del {{ ultimo.fecha_toma.strftime('%d/%m/%Y') }}
+    {% if ultimo.numero_informe %}· informe nº {{ ultimo.numero_informe }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if analisis %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 small align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha toma</th>
+                        <th class="d-none d-md-table-cell">Nº informe</th>
+                        <th class="text-end">Bactoscan</th>
+                        <th class="text-end">Células</th>
+                        <th class="text-end d-none d-lg-table-cell">Grasa %</th>
+                        <th class="text-end d-none d-lg-table-cell">Proteína %</th>
+                        <th class="text-end d-none d-lg-table-cell">Urea</th>
+                        <th>Inhibidores</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in analisis %}
+                    <tr>
+                        <td class="text-nowrap">{{ a.fecha_toma.strftime('%d/%m/%y') }}</td>
+                        <td class="d-none d-md-table-cell text-muted">{{ a.numero_informe or '—' }}</td>
+                        <td class="text-end">{{ "%.0f"|format(a.bactoscan) if a.bactoscan is not none else "—" }}</td>
+                        <td class="text-end">{{ "%.0f"|format(a.celulas_somaticas) if a.celulas_somaticas is not none else "—" }}</td>
+                        <td class="text-end d-none d-lg-table-cell">{{ "%.2f"|format(a.materia_grasa) if a.materia_grasa is not none else "—" }}</td>
+                        <td class="text-end d-none d-lg-table-cell">{{ "%.2f"|format(a.proteina) if a.proteina is not none else "—" }}</td>
+                        <td class="text-end d-none d-lg-table-cell">{{ "%.0f"|format(a.urea) if a.urea is not none else "—" }}</td>
+                        <td>
+                            {% if a.inhibidores == 'Positivo' %}
+                            <span class="badge bg-danger">Positivo</span>
+                            {% elif a.inhibidores == 'Negativo' %}
+                            <span class="badge bg-success">Negativo</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if pdf_urls.get(a.id) %}
+                            <a href="{{ pdf_urls[a.id] }}" target="_blank" class="text-decoration-none" title="Ver informe original">
+                                <i class="bi bi-file-earmark-pdf text-danger"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#modalEditar{{ a.id }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="post" action="/analisis-leche/{{ a.id }}/eliminar" class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar este análisis?')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Modal editar -->
+                    <div class="modal fade" id="modalEditar{{ a.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2 text-success"></i>Editar análisis de leche</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/analisis-leche/{{ a.id }}/editar">
+                                    <div class="modal-body">
+                                        {% set valores = {
+                                            'numero_informe': a.numero_informe or '',
+                                            'numero_recepcion': a.numero_recepcion or '',
+                                            'numero_muestra': a.numero_muestra or '',
+                                            'descripcion_muestra': a.descripcion_muestra or '',
+                                            'producto': a.producto or '',
+                                            'fecha_toma': a.fecha_toma.isoformat() if a.fecha_toma else '',
+                                            'fecha_recepcion': a.fecha_recepcion.isoformat() if a.fecha_recepcion else '',
+                                            'fecha_emision_informe': a.fecha_emision_informe.isoformat() if a.fecha_emision_informe else '',
+                                            'bactoscan': a.bactoscan if a.bactoscan is not none else '',
+                                            'celulas_somaticas': a.celulas_somaticas if a.celulas_somaticas is not none else '',
+                                            'crioscopia': a.crioscopia if a.crioscopia is not none else '',
+                                            'extracto_seco_magro': a.extracto_seco_magro if a.extracto_seco_magro is not none else '',
+                                            'materia_grasa': a.materia_grasa if a.materia_grasa is not none else '',
+                                            'lactosa': a.lactosa if a.lactosa is not none else '',
+                                            'proteina': a.proteina if a.proteina is not none else '',
+                                            'urea': a.urea if a.urea is not none else '',
+                                            'inhibidores': a.inhibidores or '',
+                                            'observaciones': a.observaciones or '',
+                                        } %}
+                                        {% include "analisis_leche/_campos_formulario.html" %}
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted small">
+            Todavía no hay ningún análisis de leche registrado.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal nuevo manual -->
+<div class="modal fade" id="modalNuevoManual" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-plus-lg me-2 text-success"></i>Nuevo análisis (manual)</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/analisis-leche/nuevo">
+                <div class="modal-body">
+                    {% set valores = {} %}
+                    {% include "analisis_leche/_campos_formulario.html" %}
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

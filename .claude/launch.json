@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "granja2",
+      "runtimeExecutable": "C:\\Users\\gerar\\source\\repos\\GranjaManager\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-c", "import os,sys; os.chdir(r'C:\\Users\\gerar\\source\\repos\\GranjaManager'); sys.stderr.write('CWD-IS: ' + os.getcwd() + chr(10)); import uvicorn; uvicorn.run('main:app', host='127.0.0.1', port=8001, reload=False)"],
+      "port": 8001
+    }
+  ]
+}

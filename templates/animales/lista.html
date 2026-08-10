@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Animales — GranjaManager{% endblock %}
 {% block content %}
+{% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="mb-0 fw-bold text-success"><i class="bi bi-clipboard2-data me-2"></i>Animales</h5>
@@ -18,16 +19,16 @@
 <form method="get" action="/animales" class="card mb-3">
     <div class="card-body py-2">
         <div class="row g-2 align-items-end">
-            <div class="col-12 col-sm-4">
+            <div class="col-12 col-sm-3">
                 <input type="text" name="buscar" class="form-control form-control-sm"
                        placeholder="Buscar crotal o nombre..." value="{{ buscar or '' }}">
             </div>
-            <div class="col-6 col-sm-3">
+            <div class="col-6 col-sm-2">
                 <select name="estado" class="form-select form-select-sm">
                     <option value="">Todos los estados</option>
                     {% for e in estados %}
                     <option value="{{ e.value }}" {% if filtro_estado == e.value %}selected{% endif %}>
-                        {{ e.value | capitalize }}
+                        {{ ESTADO_LABEL.get(e.value, e.value | capitalize) }}
                     </option>
                     {% endfor %}
                 </select>
@@ -50,6 +51,14 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="col-6 col-sm-2">
+                <select name="especie_id" class="form-select form-select-sm">
+                    <option value="">Todas las especies</option>
+                    {% for e in especies %}
+                    <option value="{{ e.id }}" {% if filtro_especie == e.id|string %}selected{% endif %}>{{ e.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="col-6 col-sm-1">
                 <button type="submit" class="btn btn-outline-success btn-sm w-100">
                     <i class="bi bi-search"></i>
@@ -60,70 +69,135 @@
 </form>
 
 <!-- Tabla -->
-<div class="card">
-    <div class="card-body p-0">
-        {% if animales %}
-        {% set ESTADO_LABEL = {'gestante':'Gestante','lactante':'Lactante','vacia':'Vacía','semental':'Semental','ternero':'Ternero','recria':'Recría','vendido':'Vendido','muerto':'Muerto','baja':'Baja'} %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0 align-middle table-clickable">
-                <thead class="table-light">
-                    <tr>
-                        <th>Crotal / Nombre</th>
-                        <th>Sexo</th>
-                        <th>Estado</th>
-                        <th class="d-none d-md-table-cell">Lote</th>
-                        <th class="d-none d-md-table-cell">Nacimiento</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in animales %}
-                    <tr onclick="window.location='/animales/{{ a.crotal }}'">
-                        <td>
-                            <span class="fw-semibold text-success">
-                                {% if a.nombre %}{{ a.nombre }}{% else %}<code class="small text-muted fw-normal">{{ a.crotal }}</code>{% endif %}
-                            </span>
-                            {% if a.nombre %}<br><code class="small text-muted" style="font-size:.7rem">{{ a.crotal }}</code>{% endif %}
-                        </td>
-                        <td>
-                            <i class="bi {% if a.sexo == 'hembra' %}bi-gender-female text-danger{% else %}bi-gender-male text-primary{% endif %}"></i>
-                        </td>
-                        <td>
-                            <span class="badge
-                                {% if a.estado == 'gestante' %}bg-warning text-dark
-                                {% elif a.estado == 'lactante' %}bg-info text-dark
-                                {% elif a.estado == 'vacia' %}bg-secondary
-                                {% elif a.estado == 'semental' %}bg-primary
-                                {% elif a.estado == 'ternero' %}bg-light text-dark border
-                                {% else %}bg-light text-muted border{% endif %}">
-                                {{ ESTADO_LABEL.get(a.estado, a.estado | capitalize) }}
-                            </span>
-                        </td>
-                        <td class="d-none d-md-table-cell small text-muted">
-                            {{ a.lote.nombre if a.lote else '—' }}
-                        </td>
-                        <td class="d-none d-md-table-cell small text-muted">
-                            {{ a.fecha_nacimiento.strftime('%d/%m/%Y') if a.fecha_nacimiento else '—' }}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<form method="post" action="/animales/mover-lote" id="formMoverLote">
+    <input type="hidden" name="f_buscar" value="{{ buscar or '' }}">
+    <input type="hidden" name="f_estado" value="{{ filtro_estado or '' }}">
+    <input type="hidden" name="f_sexo" value="{{ filtro_sexo or '' }}">
+    <input type="hidden" name="f_lote" value="{{ filtro_lote or '' }}">
+    <input type="hidden" name="f_especie" value="{{ filtro_especie or '' }}">
+
+    {% if animales %}
+    <div class="card mb-2">
+        <div class="card-body py-2 d-flex align-items-center gap-2 flex-wrap">
+            <span class="small text-muted"><span id="contadorSeleccion">0</span> seleccionados</span>
+            <select name="lote_id" class="form-select form-select-sm w-auto">
+                <option value="">— Sin lote —</option>
+                {% for l in lotes %}
+                <option value="{{ l.id }}">{{ l.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-arrow-right-circle me-1"></i>Mover seleccionados a lote
+            </button>
         </div>
-        <div class="px-3 py-2 text-muted small border-top">
-            {{ animales | length }} animal{% if animales | length != 1 %}es{% endif %}
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-search fs-2 d-block mb-2"></i>
-            No se encontraron animales con esos filtros.
-            <div class="mt-2">
-                <a href="/animales/nuevo" class="btn btn-success btn-sm">
-                    <i class="bi bi-plus-lg me-1"></i>Añadir primer animal
-                </a>
-            </div>
-        </div>
-        {% endif %}
     </div>
-</div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body p-0">
+            {% if animales %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle table-clickable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:2rem">
+                                <input type="checkbox" class="form-check-input" id="checkAll" onclick="toggleAll(this)">
+                            </th>
+                            <th>Crotal / Nombre</th>
+                            <th class="d-none d-md-table-cell">Raza</th>
+                            <th>Sexo</th>
+                            <th>Estado</th>
+                            <th class="d-none d-md-table-cell">Lote</th>
+                            <th class="d-none d-md-table-cell">Nacimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in animales %}
+                        <tr onclick="window.location='/animales/{{ a.crotal }}'">
+                            <td onclick="event.stopPropagation()">
+                                <input type="checkbox" class="form-check-input fila-check" name="crotales"
+                                       value="{{ a.crotal }}" onchange="actualizarContador()">
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-success">
+                                    {% if a.nombre %}{{ a.nombre }}{% else %}<code class="small text-muted fw-normal">{{ a.crotal }}</code>{% endif %}
+                                </span>
+                                {% if a.nombre %}<br><code class="small text-muted" style="font-size:.7rem">{{ a.crotal }}</code>{% endif %}
+                            </td>
+                            <td class="d-none d-md-table-cell small text-muted">
+                                {{ a.raza or '—' }}
+                                {% if a.especie and a.especie.nombre != 'Bovino' %}
+                                <span class="badge bg-secondary bg-opacity-50 text-dark ms-1">{{ a.especie.nombre }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <i class="bi {% if a.sexo == 'hembra' %}bi-gender-female text-danger{% else %}bi-gender-male text-primary{% endif %}"></i>
+                            </td>
+                            <td>
+                                <span class="badge
+                                    {% if a.estado == 'gestante' %}bg-warning text-dark
+                                    {% elif a.estado == 'lactante' %}bg-info text-dark
+                                    {% elif a.estado == 'vacia' %}bg-secondary
+                                    {% elif a.estado == 'semental' %}bg-primary
+                                    {% elif a.estado == 'ternero' %}bg-light text-dark border
+                                    {% else %}bg-light text-muted border{% endif %}">
+                                    {% if a.estado == 'ternero' %}
+                                    {{ cria_label.get(a.especie.nombre if a.especie else 'Bovino', 'Ternero') }}
+                                    {% else %}
+                                    {{ ESTADO_LABEL.get(a.estado, a.estado | capitalize) }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="d-none d-md-table-cell small text-muted">
+                                {{ a.lote.nombre if a.lote else '—' }}
+                            </td>
+                            <td class="d-none d-md-table-cell small text-muted">
+                                {{ a.fecha_nacimiento.strftime('%d/%m/%Y') if a.fecha_nacimiento else '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-3 py-2 text-muted small border-top">
+                {{ animales | length }} animal{% if animales | length != 1 %}es{% endif %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-search fs-2 d-block mb-2"></i>
+                No se encontraron animales con esos filtros.
+                <div class="mt-2">
+                    <a href="/animales/nuevo" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>Añadir primer animal
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
+<script>
+function toggleAll(cb) {
+    document.querySelectorAll('.fila-check').forEach(function(el) { el.checked = cb.checked; });
+    actualizarContador();
+}
+function actualizarContador() {
+    var n = document.querySelectorAll('.fila-check:checked').length;
+    document.getElementById('contadorSeleccion').textContent = n;
+}
+var formMoverLote = document.getElementById('formMoverLote');
+if (formMoverLote) {
+    formMoverLote.addEventListener('submit', function(e) {
+        var n = document.querySelectorAll('.fila-check:checked').length;
+        if (n === 0) {
+            e.preventDefault();
+            alert('Selecciona al menos un animal.');
+        } else if (!confirm('¿Mover ' + n + ' animal(es) al lote seleccionado?')) {
+            e.preventDefault();
+        }
+    });
+}
+</script>
 
 {% endblock %}

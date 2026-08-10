@@ -26,6 +26,6 @@ primary_region = "cdg"
   initial_size = "1gb"
 
 [[vm]]
-  memory = "256mb"
+  memory = "512mb"
   cpu_kind = "shared"
   cpus = 1

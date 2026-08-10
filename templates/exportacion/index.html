@@ -6,6 +6,15 @@
     <h5 class="mb-0 fw-bold text-success"><i class="bi bi-download me-2"></i>Exportaciones</h5>
 </div>
 
+{% if sin_datos %}
+<div class="alert alert-warning small py-2">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No se encontraron registros
+    {% if sin_datos == 'altas' %}de altas{% elif sin_datos == 'bajas' %}de bajas{% elif sin_datos == 'cuaderno' %}de tratamientos/abonados{% elif sin_datos == 'censo' %}de censo{% endif %}
+    para ese rango — revisa las fechas. No se ha descargado ningún fichero.
+</div>
+{% endif %}
+
 <div class="row g-3">
 
     <!-- SITRAN -->

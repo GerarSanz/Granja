@@ -15,9 +15,12 @@ def stock_actual(db: Session, alimento_id: int) -> float:
 
 
 def consumo_diario_alimento(db: Session, alimento_id: int) -> float:
-    conteo_estados = _conteo_animales_por_estado(db)
+    conteo = _conteo_animales_por_estado_especie(db)
     raciones = db.query(RacionTipo).filter(RacionTipo.alimento_id == alimento_id).all()
-    return sum(r.kg_por_animal_dia * conteo_estados.get(r.estado_productivo, 0) for r in raciones)
+    return sum(
+        r.kg_por_animal_dia * conteo.get((r.estado_productivo, r.especie_id), 0)
+        for r in raciones
+    )
 
 
 def dias_restantes_stock(db: Session, alimento_id: int) -> float | None:
@@ -50,12 +53,23 @@ def consumo_total_diario(db: Session) -> dict:
     return {a.nombre: consumo_diario_alimento(db, a.id) for a in alimentos}
 
 
-def _conteo_animales_por_estado(db: Session) -> dict:
-    return {
-        "gestante": db.query(Animal).filter(Animal.estado == EstadoAnimal.gestante, Animal.fecha_baja.is_(None)).count(),
-        "lactante": db.query(Animal).filter(Animal.estado == EstadoAnimal.lactante, Animal.fecha_baja.is_(None)).count(),
-        "vacia": db.query(Animal).filter(Animal.estado == EstadoAnimal.vacia, Animal.fecha_baja.is_(None)).count(),
-        "semental": db.query(Animal).filter(Animal.estado == EstadoAnimal.semental, Animal.fecha_baja.is_(None)).count(),
-        "ternero_lactante": db.query(Animal).filter(Animal.estado == EstadoAnimal.ternero, Animal.fecha_baja.is_(None)).count(),
-        "ternero_destete": db.query(Animal).filter(Animal.estado == EstadoAnimal.recria, Animal.fecha_baja.is_(None)).count(),
-    }
+_ESTADO_PRODUCTIVO_POR_ESTADO_ANIMAL = {
+    "gestante": EstadoAnimal.gestante,
+    "lactante": EstadoAnimal.lactante,
+    "vacia": EstadoAnimal.vacia,
+    "semental": EstadoAnimal.semental,
+    "ternero_lactante": EstadoAnimal.ternero,
+    "ternero_destete": EstadoAnimal.recria,
+}
+
+
+def _conteo_animales_por_estado_especie(db: Session) -> dict:
+    """Cuenta animales activos por (estado_productivo, especie_id)."""
+    conteo = {}
+    animales = db.query(Animal).filter(Animal.fecha_baja.is_(None)).all()
+    for estado_productivo, estado_animal in _ESTADO_PRODUCTIVO_POR_ESTADO_ANIMAL.items():
+        for a in animales:
+            if a.estado == estado_animal:
+                clave = (estado_productivo, a.especie_id)
+                conteo[clave] = conteo.get(clave, 0) + 1
+    return conteo
