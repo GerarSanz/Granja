@@ -71,7 +71,10 @@ presupuesto), `cuaderno` (incluye exportaciones SITRAN/ARCA/censo),
 `agroturismo` (actividades, alojamientos y reservas con control de aforo),
 `facturacion` (clientes, facturas con numeración correlativa, PDF y
 encadenado con huella entre facturas emitidas — ver aviso sobre VERI*FACTU
-más abajo).
+más abajo), `rentabilidad` (panel de ingresos/gastos/margen por año y por
+animal — combina Economía, Quesería y Facturación; funciona con datos
+parciales si alguno de esos módulos no está activo, pero da su mejor
+resultado con `economia` activado).
 
 El núcleo — Animales, Reproducción, Sanidad, Lotes/Parcelas, Tareas — está
 siempre incluido, no es seleccionable.

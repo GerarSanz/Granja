@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Rentabilidad {{ anio }} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-graph-up-arrow me-2"></i>Panel de rentabilidad</h5>
+    <div class="d-flex gap-2 align-items-center">
+        <a href="/rentabilidad?anio={{ anio - 1 }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+        <span class="fw-semibold">{{ anio }}</span>
+        <a href="/rentabilidad?anio={{ anio + 1 }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-success">{{ "%.0f €"|format(total_ingresos) }}</div>
+            <div class="kpi-label">Ingresos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-danger">{{ "%.0f €"|format(total_gastos) }}</div>
+            <div class="kpi-label">Gastos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if margen >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ "%.0f €"|format(margen) }}
+            </div>
+            <div class="kpi-label">
+                Margen
+                {% if pct_margen is not none %}
+                <span class="d-block">({{ "%.0f"|format(pct_margen) }}% s/ ingresos)</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-primary">
+                {% if margen_por_animal is not none %}{{ "%.0f €"|format(margen_por_animal) }}{% else %}—{% endif %}
+            </div>
+            <div class="kpi-label">Margen / animal ({{ censo_activo }})</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Ingresos por origen -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-arrow-up-circle me-2 text-success"></i>Ingresos por origen
+            </div>
+            <div class="card-body">
+                {% if ingresos_por_origen and total_ingresos > 0 %}
+                {% for o in ingresos_por_origen %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>{{ o.nombre }}</span>
+                        <span class="fw-semibold text-success">{{ "%.0f €"|format(o.importe) }}</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: {{ (o.importe / max_ingreso_origen * 100) if max_ingreso_origen else 0 }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if 'queseria' in request.state.modulos or 'facturacion' in request.state.modulos %}
+                <small class="text-muted d-block mt-2">
+                    <i class="bi bi-info-circle me-1"></i>Si facturas una venta que también registras en
+                    Quesería o Economía, revisa que no quede contada dos veces.
+                </small>
+                {% endif %}
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin ingresos registrados en {{ anio }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Gastos por categoría -->
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-arrow-down-circle me-2 text-danger"></i>Gastos por categoría
+            </div>
+            <div class="card-body">
+                {% if gastos_por_categoria %}
+                {% for cat, total in gastos_por_categoria.items() | sort(attribute='1', reverse=True) %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>{{ cat | replace('_',' ') | capitalize }}</span>
+                        <span class="fw-semibold text-danger">{{ "%.0f €"|format(total) }}</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar"
+                             style="width: {{ (total / max_gasto_categoria * 100) if max_gasto_categoria else 0 }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-center text-muted py-4 small">Sin gastos registrados en {{ anio }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Evolución multianual -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Evolución
+            </div>
+            <div class="card-body">
+                {% if evolucion %}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:70px;">Año</th>
+                                <th>Ingresos</th>
+                                <th>Gastos</th>
+                                <th class="text-end" style="width:110px;">Margen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in evolucion %}
+                            <tr class="{% if e.anio == anio %}table-active{% endif %}">
+                                <td class="fw-semibold">
+                                    <a href="/rentabilidad?anio={{ e.anio }}" class="text-decoration-none">{{ e.anio }}</a>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px;">
+                                            <div class="progress-bar bg-success" style="width: {{ (e.ingresos / max_evolucion * 100) if max_evolucion else 0 }}%;"></div>
+                                        </div>
+                                        <small class="text-muted text-nowrap">{{ "%.0f €"|format(e.ingresos) }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px;">
+                                            <div class="progress-bar bg-danger" style="width: {{ (e.gastos / max_evolucion * 100) if max_evolucion else 0 }}%;"></div>
+                                        </div>
+                                        <small class="text-muted text-nowrap">{{ "%.0f €"|format(e.gastos) }}</small>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-semibold {% if e.margen >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.0f €"|format(e.margen) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">Todavía no hay suficientes datos para ver una evolución</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

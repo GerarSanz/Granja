@@ -77,7 +77,7 @@
                 </li>
                 {% endif %}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if '/alimentacion' in request.url.path or '/economia' in request.url.path or '/presupuesto' in request.url.path or '/exportacion' in request.url.path or '/maestros' in request.url.path or '/cuaderno' in request.url.path or '/analisis-leche' in request.url.path or '/maquinaria' in request.url.path or '/facturacion' in request.url.path %}active{% endif %}"
+                    <a class="nav-link dropdown-toggle {% if '/alimentacion' in request.url.path or '/economia' in request.url.path or '/presupuesto' in request.url.path or '/exportacion' in request.url.path or '/maestros' in request.url.path or '/cuaderno' in request.url.path or '/analisis-leche' in request.url.path or '/maquinaria' in request.url.path or '/facturacion' in request.url.path or '/rentabilidad' in request.url.path %}active{% endif %}"
                        href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-grid"></i> Más
                     </a>
@@ -112,6 +112,13 @@
                         <li>
                             <a class="dropdown-item {% if '/presupuesto' in request.url.path %}active{% endif %}" href="/presupuesto">
                                 <i class="bi bi-piggy-bank me-2 text-success"></i>Presupuesto anual
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if 'rentabilidad' in request.state.modulos %}
+                        <li>
+                            <a class="dropdown-item {% if '/rentabilidad' in request.url.path %}active{% endif %}" href="/rentabilidad">
+                                <i class="bi bi-graph-up-arrow me-2 text-primary"></i>Rentabilidad
                             </a>
                         </li>
                         {% endif %}
