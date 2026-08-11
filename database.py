@@ -25,7 +25,7 @@ def get_db():
 
 
 def create_tables():
-    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario, maestros, cuaderno, tarea, presupuesto, queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar
+    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario, maestros, cuaderno, tarea, presupuesto, queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar, documento
     _migrate_esquema_queseria_v2()
     _migrate_lotes_queso_piezas_nullable()
     _migrate_tratamientos_animal_nullable()
@@ -199,6 +199,8 @@ def _migrate_sqlite():
         ("alertas", "maquina_id", "INTEGER"),
         # Alertas de acciones correctoras de bienestar animal vencidas
         ("alertas", "indicador_bienestar_id", "INTEGER"),
+        # Alertas de documentos próximos a caducar / caducados
+        ("alertas", "documento_id", "INTEGER"),
     ]
     with engine.connect() as conn:
         for tabla, columna, tipo in migrations:

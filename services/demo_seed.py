@@ -18,7 +18,7 @@ from database import SessionLocal
 # al no estar esa clase registrada todavía.
 from models import (animal, reproduccion, lote, sanidad, alimentacion, economia,
                      alerta, usuario, maestros, cuaderno, tarea, presupuesto,
-                     queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar)
+                     queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar, documento)
 from models.usuario import Usuario, RolUsuario
 from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
                           AbonoParcela, TratamientoParcela, SubParcela, OcupacionSubParcela)
@@ -37,6 +37,7 @@ from models.presupuesto import PresupuestoPartida
 from models.agroturismo import ActividadTurismo, ReservaTurismo, EstadoReserva
 from models.facturacion import Cliente, Factura, LineaFactura, EstadoFactura
 from models.bienestar import AuditoriaBienestar, IndicadorBienestar
+from models.documento import Documento
 from services.facturacion_hash import calcular_hash, siguiente_numero
 from auth import hash_password
 
@@ -49,7 +50,7 @@ DEMO_PASSWORD = "demo1234"
 def _limpiar(db):
     """Borra todos los datos de la explotación (no toca especies/razas maestras)."""
     for modelo in [
-        Alerta, IndicadorBienestar, AuditoriaBienestar,
+        Alerta, IndicadorBienestar, AuditoriaBienestar, Documento,
         MovimientoQueso, LoteQueso, CuajoProducto, Estanteria,
         AnalisisLeche, RevisionMaquina, Maquina,
         Tratamiento, Desparasitacion, PlanVacunal,
@@ -514,6 +515,31 @@ def _sembrar(db):
         IndicadorBienestar(auditoria_id=auditoria_reciente.id, categoria="comportamiento",
                             indicador="Ausencia de signos de miedo ante la presencia humana", puntuacion=9, orden=3),
     ])
+
+    # --- Gestión documental ---
+    db.add(Documento(
+        tipo="certificado_ecologico", titulo="Certificado de producción ecológica",
+        entidad="COPAE (Consejo de la Producción Agraria Ecológica de Asturias)",
+        num_referencia="COPAE-33-0456",
+        fecha_emision=hoy - timedelta(days=335), fecha_caducidad=hoy + timedelta(days=20),
+        observaciones="Renovación anual — inspección de campo ya realizada.",
+    ))
+    db.add(Documento(
+        tipo="seguro", titulo="Seguro de responsabilidad civil de la explotación",
+        entidad="Mutua Ganadera Asturiana", num_referencia="POL-778234",
+        fecha_emision=hoy - timedelta(days=200), fecha_caducidad=hoy + timedelta(days=165),
+    ))
+    db.add(Documento(
+        tipo="inspeccion", titulo="Inspección sanitaria SERIDA",
+        entidad="SERIDA", fecha_emision=hoy - timedelta(days=90), fecha_caducidad=None,
+        observaciones="Sin incidencias.",
+    ))
+    db.add(Documento(
+        tipo="contrato", titulo="Contrato de suministro — Quesería El Hórreo",
+        entidad="Tienda Ecológica El Hórreo", fecha_emision=hoy - timedelta(days=400),
+        fecha_caducidad=hoy - timedelta(days=5),
+        observaciones="Pendiente de renovar tras la caducidad.",
+    ))
 
     # --- Tareas ---
     db.add(Tarea(titulo="Revisar cerca prado del río", prioridad="media",

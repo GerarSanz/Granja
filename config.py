@@ -37,6 +37,9 @@ class Settings:
     ALERTA_REVISION_DIAS: list[int] = [
         int(d) for d in os.getenv("ALERTA_REVISION_DIAS", "30,15,7").split(",") if d.strip()
     ]
+    ALERTA_DOCUMENTO_DIAS: list[int] = [
+        int(d) for d in os.getenv("ALERTA_DOCUMENTO_DIAS", "60,30,15,7").split(",") if d.strip()
+    ]
 
     DIAS_GESTACION_BOVINA: int = 285
 
@@ -45,7 +48,7 @@ class Settings:
     # módulos opcionales. Si no, lista separada por comas, p.ej.:
     #   MODULOS=queseria,analisis_leche,maquinaria
     # Animales/Reproducción/Sanidad/Lotes/Tareas son el núcleo y siempre están activos.
-    MODULOS_DISPONIBLES = {"queseria", "analisis_leche", "maquinaria", "alimentacion", "economia", "cuaderno", "agroturismo", "facturacion", "rentabilidad", "bienestar"}
+    MODULOS_DISPONIBLES = {"queseria", "analisis_leche", "maquinaria", "alimentacion", "economia", "cuaderno", "agroturismo", "facturacion", "rentabilidad", "bienestar", "documentos"}
     _modulos_env = os.getenv("MODULOS", "todos").strip().lower()
     if _modulos_env in ("", "todos", "all"):
         MODULOS: set[str] = set(MODULOS_DISPONIBLES)

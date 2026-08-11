@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Gestión documental — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-folder2-open me-2"></i>Gestión documental</h5>
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevo">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo documento
+    </button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-primary">{{ total }}</div>
+            <div class="kpi-label">Documentos</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if vencidos > 0 %}text-danger{% else %}text-success{% endif %}">{{ vencidos }}</div>
+            <div class="kpi-label">Caducados</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if proximos > 0 %}text-warning{% else %}text-success{% endif %}">{{ proximos }}</div>
+            <div class="kpi-label">Caducan en 30 días</div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3 d-flex flex-wrap gap-1">
+    <a href="/documentos" class="btn btn-sm {% if not filtro_tipo %}btn-success{% else %}btn-outline-secondary{% endif %}">Todos</a>
+    {% for t in tipos %}
+    <a href="/documentos?tipo={{ t.value }}" class="btn btn-sm {% if filtro_tipo == t.value %}btn-success{% else %}btn-outline-secondary{% endif %}">
+        {{ t.value | replace('_',' ') | capitalize }}
+    </a>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if documentos %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Título</th>
+                        <th class="d-none d-md-table-cell">Tipo</th>
+                        <th class="d-none d-md-table-cell">Entidad</th>
+                        <th>Caducidad</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in documentos %}
+                    <tr>
+                        <td>
+                            {{ d.titulo }}
+                            {% if d.num_referencia %}<br><small class="text-muted">Ref: {{ d.num_referencia }}</small>{% endif %}
+                        </td>
+                        <td class="d-none d-md-table-cell"><small class="text-muted">{{ d.tipo | replace('_',' ') | capitalize }}</small></td>
+                        <td class="d-none d-md-table-cell text-muted small">{{ d.entidad or '—' }}</td>
+                        <td>
+                            {% if d.fecha_caducidad %}
+                            <span class="badge {% if d.fecha_caducidad < hoy %}bg-danger{% elif (d.fecha_caducidad - hoy).days <= 30 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ d.fecha_caducidad.strftime('%d/%m/%Y') }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">no caduca</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if archivo_urls[d.id] %}
+                            <a href="{{ archivo_urls[d.id] }}" target="_blank" class="btn btn-xs btn-outline-secondary py-0 px-1" title="Ver archivo">
+                                <i class="bi bi-paperclip"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#modalEditar{{ d.id }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="post" action="/documentos/{{ d.id }}/eliminar" class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar este documento?')">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Modal editar -->
+                    <div class="modal fade" id="modalEditar{{ d.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2 text-success"></i>{{ d.titulo }}</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/documentos/{{ d.id }}/editar" enctype="multipart/form-data">
+                                    <div class="modal-body">
+                                        <div class="row g-2">
+                                            <div class="col-6 col-md-4">
+                                                <label class="form-label small fw-semibold">Tipo</label>
+                                                <select name="tipo" class="form-select form-select-sm">
+                                                    {% for t in tipos %}
+                                                    <option value="{{ t.value }}" {% if t.value == d.tipo %}selected{% endif %}>{{ t.value | replace('_',' ') | capitalize }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-8">
+                                                <label class="form-label small fw-semibold">Título <span class="text-danger">*</span></label>
+                                                <input type="text" name="titulo" class="form-control form-control-sm" value="{{ d.titulo }}" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Entidad</label>
+                                                <input type="text" name="entidad" class="form-control form-control-sm" value="{{ d.entidad or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Nº referencia</label>
+                                                <input type="text" name="num_referencia" class="form-control form-control-sm" value="{{ d.num_referencia or '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Fecha emisión</label>
+                                                <input type="date" name="fecha_emision" class="form-control form-control-sm" value="{{ d.fecha_emision.isoformat() if d.fecha_emision else '' }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-semibold">Fecha caducidad</label>
+                                                <input type="date" name="fecha_caducidad" class="form-control form-control-sm" value="{{ d.fecha_caducidad.isoformat() if d.fecha_caducidad else '' }}">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Archivo</label>
+                                                {% if archivo_urls[d.id] %}
+                                                <div class="small mb-1">
+                                                    <a href="{{ archivo_urls[d.id] }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ d.archivo_nombre }}</a>
+                                                </div>
+                                                {% endif %}
+                                                <input type="file" name="archivo" class="form-control form-control-sm">
+                                                <small class="text-muted">Sube un archivo nuevo solo si quieres sustituir el actual.</small>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-semibold">Observaciones</label>
+                                                <textarea name="observaciones" class="form-control form-control-sm" rows="2">{{ d.observaciones or '' }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            {% if filtro_tipo %}Sin documentos de este tipo.{% else %}Todavía no hay documentos registrados.{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal nuevo -->
+<div class="modal fade" id="modalNuevo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-file-earmark-plus me-2 text-success"></i>Nuevo documento</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/documentos/nuevo" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6 col-md-4">
+                            <label class="form-label small fw-semibold">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm">
+                                {% for t in tipos %}
+                                <option value="{{ t.value }}" {% if filtro_tipo == t.value %}selected{% endif %}>{{ t.value | replace('_',' ') | capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-8">
+                            <label class="form-label small fw-semibold">Título <span class="text-danger">*</span></label>
+                            <input type="text" name="titulo" class="form-control form-control-sm" placeholder="Ej: Certificado ecológico COPAE 2026" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Entidad</label>
+                            <input type="text" name="entidad" class="form-control form-control-sm" placeholder="Organismo emisor o contraparte">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Nº referencia</label>
+                            <input type="text" name="num_referencia" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha emisión</label>
+                            <input type="date" name="fecha_emision" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha caducidad</label>
+                            <input type="date" name="fecha_caducidad" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Archivo (PDF, imagen, Word, Excel)</label>
+                            <input type="file" name="archivo" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Observaciones</label>
+                            <textarea name="observaciones" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted me-auto"><i class="bi bi-bell me-1"></i>Si pones fecha de caducidad, avisamos antes de que venza.</small>
+                    <button type="submit" class="btn btn-success btn-sm">Guardar documento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -8,6 +8,7 @@ from models.tarea import Tarea
 from models.queseria import LoteQueso
 from models.maquinaria import Maquina, RevisionMaquina
 from models.bienestar import IndicadorBienestar
+from models.documento import Documento
 from services.telegram import enviar_telegram
 from config import get_settings
 import asyncio
@@ -294,6 +295,47 @@ def generar_alertas_diarias(db: Session):
                 mensaje=msg,
                 fecha_disparo=hoy,
             ))
+
+    # --- Documentos próximos a caducar / caducados (certificados, seguros,
+    # contratos, licencias...) ---
+    documentos_con_caducidad = db.query(Documento).filter(Documento.fecha_caducidad.isnot(None)).all()
+    for doc in documentos_con_caducidad:
+        dias_restantes = (doc.fecha_caducidad - hoy).days
+
+        if dias_restantes < 0:
+            ya_existe = db.query(Alerta).filter(
+                Alerta.tipo == TipoAlerta.documento_caducado,
+                Alerta.documento_id == doc.id,
+                Alerta.fecha_disparo >= doc.fecha_caducidad,
+            ).first()
+            if not ya_existe:
+                msg = f"DOCUMENTO CADUCADO: {doc.titulo} — vencio hace {-dias_restantes} dia(s)"
+                alertas_nuevas.append(Alerta(
+                    tipo=TipoAlerta.documento_caducado,
+                    nivel=NivelAlerta.urgente,
+                    documento_id=doc.id,
+                    mensaje=msg,
+                    fecha_disparo=hoy,
+                ))
+        else:
+            umbrales_desc = sorted(settings.ALERTA_DOCUMENTO_DIAS, reverse=True)
+            ya_alertados = db.query(Alerta).filter(
+                Alerta.tipo == TipoAlerta.documento_proximo_caducar,
+                Alerta.documento_id == doc.id,
+                Alerta.fecha_disparo >= (doc.fecha_emision or hoy),
+            ).count()
+            if ya_alertados < len(umbrales_desc):
+                umbral_actual = umbrales_desc[ya_alertados]
+                if dias_restantes <= umbral_actual:
+                    nivel = NivelAlerta.urgente if umbral_actual <= 15 else NivelAlerta.aviso
+                    msg = f"DOCUMENTO caduca en {dias_restantes} dias: {doc.titulo}"
+                    alertas_nuevas.append(Alerta(
+                        tipo=TipoAlerta.documento_proximo_caducar,
+                        nivel=nivel,
+                        documento_id=doc.id,
+                        mensaje=msg,
+                        fecha_disparo=hoy,
+                    ))
 
     # Guardar alertas y enviar Telegram
     for alerta in alertas_nuevas:
