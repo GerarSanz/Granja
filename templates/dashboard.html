@@ -249,6 +249,11 @@
                         <i class="bi bi-egg-fried me-1"></i>Quesería
                     </a>
                     {% endif %}
+                    {% if 'facturacion' in request.state.modulos %}
+                    <a href="/facturacion/nueva" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-receipt me-1"></i>Nueva factura
+                    </a>
+                    {% endif %}
                     {% if vacias > 0 %}
                     <a href="/animales?estado=vacia" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-search me-1"></i>Vacas vacías ({{ vacias }})

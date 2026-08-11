@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Facturación — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-receipt me-2"></i>Facturación</h5>
+    <div class="d-flex gap-2">
+        <a href="/facturacion/nueva" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Nueva factura
+        </a>
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCliente">
+            <i class="bi bi-person-plus me-1"></i>Cliente
+        </button>
+    </div>
+</div>
+
+<div class="alert alert-light border small py-2 mb-3">
+    <i class="bi bi-info-circle me-1 text-muted"></i>
+    Numeración correlativa y encadenado con huella entre facturas emitidas (para detectar alteraciones a
+    posteriori). No implementa todavía el QR normalizado de la AEAT ni el envío en tiempo real
+    (Reglamento VERI*FACTU) — válido para gestión y para entregar al cliente, pero revisa ese punto antes
+    de un uso a gran escala. <a href="/facturacion/verificar" class="alert-link">Comprobar integridad de la cadena →</a>
+</div>
+
+<!-- KPIs -->
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-success">{{ "%.0f €"|format(facturado_anio) }}</div>
+            <div class="kpi-label">Facturado {{ anio_filtro }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if pendiente_cobro > 0 %}text-warning{% endif %}">{{ "%.0f €"|format(pendiente_cobro) }}</div>
+            <div class="kpi-label">Pendiente de cobro</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ borradores }}</div>
+            <div class="kpi-label">Borradores</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num">{{ clientes | length }}</div>
+            <div class="kpi-label">Clientes</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Clientes -->
+    <div class="col-12 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-people me-2 text-success"></i>Clientes
+                <span class="badge bg-secondary fw-normal ms-1">{{ clientes | length }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if clientes %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle">
+                        <tbody>
+                            {% for c in clientes %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ c.nombre }}</div>
+                                    <div class="text-muted" style="font-size:.75rem;">
+                                        {{ c.nif or '—' }}{% if c.localidad %} · {{ c.localidad }}{% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditCliente{{ c.id }}" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="post" action="/facturacion/cliente/{{ c.id }}/eliminar" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar {{ c.nombre }}?')">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+
+                            <!-- Modal editar cliente -->
+                            <div class="modal fade" id="modalEditCliente{{ c.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar cliente</h6>
+                                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="/facturacion/cliente/{{ c.id }}/editar">
+                                            <div class="modal-body">
+                                                {% set valores = {
+                                                    'nombre': c.nombre, 'nif': c.nif or '', 'direccion': c.direccion or '',
+                                                    'cp': c.cp or '', 'localidad': c.localidad or '', 'provincia': c.provincia or '',
+                                                    'email': c.email or '', 'telefono': c.telefono or '', 'observaciones': c.observaciones or '',
+                                                } %}
+                                                {% include "facturacion/_campos_cliente.html" %}
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-people fs-3 d-block mb-2 opacity-25"></i>
+                    Sin clientes registrados
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Facturas -->
+    <div class="col-12 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold">
+                    <i class="bi bi-journal-text me-2 text-success"></i>Facturas
+                    <span class="badge bg-secondary fw-normal ms-1">{{ facturas | length }}</span>
+                </span>
+                {% if filtro_anio or filtro_estado or filtro_cliente %}
+                <a href="/facturacion" class="btn btn-xs btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>Quitar filtro
+                </a>
+                {% endif %}
+            </div>
+            <form method="get" action="/facturacion" class="px-3 py-2 border-bottom bg-light d-flex gap-2 flex-wrap">
+                <select name="anio" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    {% for a in anios_disponibles %}
+                    <option value="{{ a }}" {% if anio_filtro == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+                <select name="estado" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">Todos los estados</option>
+                    {% for e in ['borrador','emitida','pagada','anulada'] %}
+                    <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e | capitalize }}</option>
+                    {% endfor %}
+                </select>
+                <select name="cliente_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">Todos los clientes</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.id }}" {% if filtro_cliente == c.id|string %}selected{% endif %}>{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="card-body p-0">
+                {% if facturas %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 small align-middle table-clickable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nº / Fecha</th>
+                                <th>Cliente</th>
+                                <th>Estado</th>
+                                <th class="text-end">Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturas %}
+                            <tr onclick="window.location='/facturacion/{{ f.id }}'" style="cursor:pointer;">
+                                <td class="text-nowrap">
+                                    <div class="fw-semibold">{{ f.numero or '(borrador #' + f.id|string + ')' }}</div>
+                                    <div class="text-muted" style="font-size:.75rem;">{{ f.fecha_emision.strftime('%d/%m/%Y') }}</div>
+                                </td>
+                                <td>{{ f.cliente.nombre if f.cliente else '—' }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if f.estado == 'pagada' %}bg-success
+                                        {% elif f.estado == 'emitida' %}bg-warning text-dark
+                                        {% elif f.estado == 'anulada' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ f.estado | capitalize }}
+                                    </span>
+                                </td>
+                                <td class="text-end fw-semibold">{{ "%.2f €"|format(f.total) }}</td>
+                                <td class="text-end" onclick="event.stopPropagation()">
+                                    <a href="/facturacion/{{ f.id }}/pdf" class="btn btn-xs btn-outline-secondary py-0 px-1" title="Descargar PDF">
+                                        <i class="bi bi-file-earmark-pdf"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4 small">
+                    <i class="bi bi-journal-text fs-3 d-block mb-2 opacity-25"></i>
+                    Sin facturas registradas
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo cliente -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-person-plus me-2 text-success"></i>Nuevo cliente</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/facturacion/cliente/nuevo">
+                <div class="modal-body">
+                    {% set valores = {} %}
+                    {% include "facturacion/_campos_cliente.html" %}
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -68,7 +68,10 @@ seleccionar de antemano con `--modulos`:
 Módulos opcionales disponibles: `queseria` (incluye trazabilidad),
 `analisis_leche`, `maquinaria`, `alimentacion`, `economia` (incluye
 presupuesto), `cuaderno` (incluye exportaciones SITRAN/ARCA/censo),
-`agroturismo` (actividades, alojamientos y reservas con control de aforo).
+`agroturismo` (actividades, alojamientos y reservas con control de aforo),
+`facturacion` (clientes, facturas con numeración correlativa, PDF y
+encadenado con huella entre facturas emitidas — ver aviso sobre VERI*FACTU
+más abajo).
 
 El núcleo — Animales, Reproducción, Sanidad, Lotes/Parcelas, Tareas — está
 siempre incluido, no es seleccionable.
@@ -81,6 +84,21 @@ Para cambiar los módulos de un cliente ya existente:
 ```bash
 fly secrets set MODULOS=maquinaria,alimentacion,economia,cuaderno --app <slug>
 ```
+
+### ⚠️ Facturación y VERI*FACTU
+
+El módulo `facturacion` genera facturas reales (numeración correlativa,
+PDF, datos fiscales) con un encadenado de huellas (hash) entre facturas
+emitidas para detectar alteraciones a posteriori. Eso cubre la parte de
+"no alterable / trazable" del Reglamento VERI*FACTU, pero **no implementa
+el resto**: no genera el código QR con el formato que exige la AEAT ni
+envía las facturas en tiempo real (modalidad VERI*FACTU) ni genera el
+registro de facturación firmado (modalidad no verificable completa).
+
+Antes de activar este módulo para un cliente real que vaya a usarlo para
+facturar de verdad a sus clientes, hay que cerrar esa pieza (o confirmar
+con el cliente que asume la limitación mientras tanto). No lo actives sin
+hablarlo antes con el cliente.
 
 (el redeploy que dispara `fly secrets set` ya aplica el cambio; no hace
 falta hacer nada más — las tablas de los módulos desactivados simplemente

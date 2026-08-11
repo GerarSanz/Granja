@@ -9,7 +9,7 @@ pública de SIGPAC, https://sigpac-hubcloud.es) para que el visor de mapa
 funcione de verdad en la demo, no solo con datos inventados.
 """
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from database import SessionLocal
 # Registra TODOS los modelos en el mapper de SQLAlchemy antes de tocar la BD —
@@ -18,7 +18,7 @@ from database import SessionLocal
 # al no estar esa clase registrada todavía.
 from models import (animal, reproduccion, lote, sanidad, alimentacion, economia,
                      alerta, usuario, maestros, cuaderno, tarea, presupuesto,
-                     queseria, analisis_leche, maquinaria, agroturismo)
+                     queseria, analisis_leche, maquinaria, agroturismo, facturacion)
 from models.usuario import Usuario, RolUsuario
 from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
                           AbonoParcela, TratamientoParcela, SubParcela, OcupacionSubParcela)
@@ -35,6 +35,8 @@ from models.alerta import Alerta
 from models.cuaderno import ConfigExplotacion
 from models.presupuesto import PresupuestoPartida
 from models.agroturismo import ActividadTurismo, ReservaTurismo, EstadoReserva
+from models.facturacion import Cliente, Factura, LineaFactura, EstadoFactura
+from services.facturacion_hash import calcular_hash, siguiente_numero
 from auth import hash_password
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ def _limpiar(db):
         Tratamiento, Desparasitacion, PlanVacunal,
         Venta, Gasto, CompraAlimento, StockMovimiento, RacionTipo, Alimento,
         ReservaTurismo, ActividadTurismo,
+        LineaFactura, Factura, Cliente,
         Tarea, Reproduccion, PresupuestoPartida, ConfigExplotacion,
         OcupacionSubParcela, SubParcela, AbonoParcela, TratamientoParcela,
         OcupacionParcela, AsignacionToro,
@@ -398,6 +401,66 @@ def _sembrar(db):
         num_personas=8, nombre_visitante="Asociación de Jubilados de Siero", telefono="985222333",
         estado=EstadoReserva.completada, precio_total=64.0, pagado=True,
     ))
+
+    # --- Facturación ---
+    cliente_horreo = Cliente(nombre="Tienda Ecológica El Hórreo", nif="B33123456",
+                              direccion="Calle Uría 12", cp="33003", localidad="Oviedo", provincia="Asturias",
+                              email="pedidos@elhorreo.example", telefono="985123456")
+    cliente_particular = Cliente(nombre="Marcos Fernández", nif="12345678Z",
+                                  direccion="Camino de Arriba 4", cp="33420", localidad="Llanera",
+                                  provincia="Asturias", email="marcos.fdez@example.com")
+    db.add_all([cliente_horreo, cliente_particular])
+    db.flush()
+
+    factura1 = Factura(anio=hoy.year, fecha_emision=hoy - timedelta(days=20), cliente_id=cliente_horreo.id,
+                        estado=EstadoFactura.borrador, forma_pago="Transferencia bancaria")
+    db.add(factura1)
+    db.flush()
+    db.add(LineaFactura(factura_id=factura1.id, concepto="Queso curado ecológico (pieza ~1kg)",
+                         cantidad=6, precio_unitario=16, tipo_iva=4, orden=0))
+    db.flush()
+    db.refresh(factura1)
+    factura1.base_imponible = sum(l.importe for l in factura1.lineas)
+    factura1.total_iva = sum(l.importe * l.tipo_iva / 100 for l in factura1.lineas)
+    factura1.total = round(factura1.base_imponible + factura1.total_iva, 2)
+    factura1.numero = siguiente_numero(db, factura1.anio)
+    factura1.estado = EstadoFactura.emitida
+    factura1.emitida_en = datetime.now()
+    factura1.hash_anterior = None
+    factura1.hash_actual = calcular_hash(factura1, None)
+
+    factura2 = Factura(anio=hoy.year, fecha_emision=hoy - timedelta(days=8), cliente_id=cliente_particular.id,
+                        estado=EstadoFactura.borrador, forma_pago="Bizum")
+    db.add(factura2)
+    db.flush()
+    db.add(LineaFactura(factura_id=factura2.id, concepto="Visita guiada a la quesería",
+                         cantidad=4, precio_unitario=8, tipo_iva=21, orden=0))
+    db.flush()
+    db.refresh(factura2)
+    factura2.base_imponible = sum(l.importe for l in factura2.lineas)
+    factura2.total_iva = sum(l.importe * l.tipo_iva / 100 for l in factura2.lineas)
+    factura2.total = round(factura2.base_imponible + factura2.total_iva, 2)
+    factura2.numero = siguiente_numero(db, factura2.anio)
+    factura2.estado = EstadoFactura.pagada
+    factura2.fecha_pago = hoy - timedelta(days=6)
+    factura2.emitida_en = datetime.now()
+    factura2.hash_anterior = factura1.hash_actual
+    factura2.hash_actual = calcular_hash(factura2, factura2.hash_anterior)
+
+    factura3 = Factura(anio=hoy.year, fecha_emision=hoy - timedelta(days=1), cliente_id=cliente_horreo.id,
+                        estado=EstadoFactura.borrador, observaciones="Pedido mensual — pendiente de revisar cantidades")
+    db.add(factura3)
+    db.flush()
+    db.add(LineaFactura(factura_id=factura3.id, concepto="Queso semicurado ecológico",
+                         cantidad=3, precio_unitario=12, tipo_iva=4, orden=0))
+    db.add(LineaFactura(factura_id=factura3.id, concepto="Afuega'l Pitu",
+                         cantidad=2, precio_unitario=9, tipo_iva=4, orden=1))
+    db.flush()
+    db.refresh(factura3)
+    factura3.base_imponible = sum(l.importe for l in factura3.lineas)
+    factura3.total_iva = sum(l.importe * l.tipo_iva / 100 for l in factura3.lineas)
+    factura3.total = round(factura3.base_imponible + factura3.total_iva, 2)
+    # factura3 se deja en borrador a propósito, para mostrar también ese estado
 
     # --- Presupuesto anual ---
     anio = hoy.year

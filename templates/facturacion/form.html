@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}{% if factura %}Editar factura{% else %}Nueva factura{% endif %} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/facturacion" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success">
+        <i class="bi bi-receipt me-2"></i>
+        {% if factura %}Editar borrador{% else %}Nueva factura{% endif %}
+    </h5>
+    {% if factura %}<span class="badge bg-secondary">Borrador #{{ factura.id }}</span>{% endif %}
+</div>
+
+{% if not clientes %}
+<div class="alert alert-warning small">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    No hay ningún cliente registrado todavía.
+    <a href="/facturacion" class="alert-link">Vuelve al listado y crea uno primero</a>.
+</div>
+{% endif %}
+
+<form method="post" action="{% if factura %}/facturacion/{{ factura.id }}/editar{% else %}/facturacion/nueva{% endif %}" id="formFactura">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-12 col-md-5">
+                    <label class="form-label small fw-semibold">Cliente <span class="text-danger">*</span></label>
+                    <select name="cliente_id" class="form-select form-select-sm" required {% if not clientes %}disabled{% endif %}>
+                        <option value="">— Selecciona —</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}" {% if factura and factura.cliente_id == c.id %}selected{% endif %}>
+                            {{ c.nombre }}{% if c.nif %} ({{ c.nif }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_emision" class="form-control form-control-sm"
+                           value="{{ factura.fecha_emision.isoformat() if factura else hoy.isoformat() }}" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold">Forma de pago</label>
+                    <input type="text" name="forma_pago" class="form-control form-control-sm" list="listaFormasPago"
+                           value="{{ factura.forma_pago if factura else '' }}" placeholder="Transferencia">
+                    <datalist id="listaFormasPago">
+                        <option value="Transferencia bancaria">
+                        <option value="Efectivo">
+                        <option value="Bizum">
+                    </datalist>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-semibold">Retención IRPF (€)</label>
+                    <input type="number" step="0.01" min="0" name="total_irpf" id="totalIrpf" class="form-control form-control-sm"
+                           value="{{ factura.total_irpf if factura and factura.total_irpf else 0 }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-list-ul me-2 text-success"></i>Líneas</span>
+            <button type="button" class="btn btn-xs btn-outline-success" onclick="agregarLinea()">
+                <i class="bi bi-plus-lg me-1"></i>Añadir línea
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="tablaLineas">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:220px;">Concepto</th>
+                            <th style="width:90px;">Cantidad</th>
+                            <th style="width:120px;">Precio ud. (€)</th>
+                            <th style="width:90px;">IVA %</th>
+                            <th style="width:110px;" class="text-end">Importe</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoLineas">
+                        {% if factura and factura.lineas %}
+                        {% for l in factura.lineas %}
+                        <tr class="fila-linea">
+                            <td><input type="text" name="concepto" class="form-control form-control-sm" value="{{ l.concepto }}" required></td>
+                            <td><input type="number" step="0.01" min="0" name="cantidad" class="form-control form-control-sm campo-cantidad" value="{{ l.cantidad }}"></td>
+                            <td><input type="number" step="0.01" min="0" name="precio_unitario" class="form-control form-control-sm campo-precio" value="{{ l.precio_unitario }}"></td>
+                            <td>
+                                <select name="tipo_iva" class="form-select form-select-sm campo-iva">
+                                    {% for iva in [0, 4, 10, 21] %}
+                                    <option value="{{ iva }}" {% if l.tipo_iva == iva %}selected{% endif %}>{{ iva }}%</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="text-end campo-importe">{{ "%.2f €"|format(l.importe) }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="quitarLinea(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr class="fila-linea">
+                            <td><input type="text" name="concepto" class="form-control form-control-sm" placeholder="Ej: Queso curado ecológico" required></td>
+                            <td><input type="number" step="0.01" min="0" name="cantidad" class="form-control form-control-sm campo-cantidad" value="1"></td>
+                            <td><input type="number" step="0.01" min="0" name="precio_unitario" class="form-control form-control-sm campo-precio" value="0"></td>
+                            <td>
+                                <select name="tipo_iva" class="form-select form-select-sm campo-iva">
+                                    <option value="0">0%</option>
+                                    <option value="4" selected>4%</option>
+                                    <option value="10">10%</option>
+                                    <option value="21">21%</option>
+                                </select>
+                            </td>
+                            <td class="text-end campo-importe">0.00 €</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="quitarLinea(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Observaciones</label>
+            <textarea name="observaciones" class="form-control form-control-sm" rows="3">{{ factura.observaciones if factura else '' }}</textarea>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card bg-light border-0">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">Base imponible</span>
+                        <span id="totalBase">0.00 €</span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">IVA</span>
+                        <span id="totalIva">0.00 €</span>
+                    </div>
+                    <div class="d-none justify-content-between small" id="filaIrpf">
+                        <span class="text-muted">Retención IRPF</span>
+                        <span id="totalIrpfPreview">-0.00 €</span>
+                    </div>
+                    <hr class="my-1">
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>TOTAL</span>
+                        <span id="totalGeneral">0.00 €</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</form>
+
+{# El botón "Guardar borrador" se asocia al <form> de arriba por id (atributo
+   form=) para poder vivir fuera de él — así el <form> de "eliminar" de abajo
+   no queda anidado dentro (HTML no permite <form> dentro de <form>). #}
+<div class="d-flex gap-2 justify-content-end mt-3">
+    {% if factura %}
+    <form method="post" action="/facturacion/{{ factura.id }}/eliminar" class="d-inline"
+          onsubmit="return confirm('¿Eliminar este borrador?')">
+        <button type="submit" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>Eliminar borrador
+        </button>
+    </form>
+    {% endif %}
+    <button type="submit" form="formFactura" class="btn btn-outline-success btn-sm">
+        <i class="bi bi-save me-1"></i>Guardar borrador
+    </button>
+</div>
+
+{% if factura %}
+<div class="card mt-3 border-success">
+    <div class="card-body py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <small class="text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            Al emitir se le asigna número correlativo y ya no se puede editar ni borrar — solo anular.
+        </small>
+        <form method="post" action="/facturacion/{{ factura.id }}/emitir"
+              onsubmit="return confirm('¿Emitir esta factura? Ya no se podrá editar ni borrar, solo anular.')">
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-check2-circle me-1"></i>Emitir factura
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<template id="plantillaLinea">
+    <tr class="fila-linea">
+        <td><input type="text" name="concepto" class="form-control form-control-sm" placeholder="Concepto" required></td>
+        <td><input type="number" step="0.01" min="0" name="cantidad" class="form-control form-control-sm campo-cantidad" value="1"></td>
+        <td><input type="number" step="0.01" min="0" name="precio_unitario" class="form-control form-control-sm campo-precio" value="0"></td>
+        <td>
+            <select name="tipo_iva" class="form-select form-select-sm campo-iva">
+                <option value="0">0%</option>
+                <option value="4" selected>4%</option>
+                <option value="10">10%</option>
+                <option value="21">21%</option>
+            </select>
+        </td>
+        <td class="text-end campo-importe">0.00 €</td>
+        <td class="text-center">
+            <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="quitarLinea(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+function agregarLinea() {
+    const tpl = document.getElementById('plantillaLinea');
+    const fila = tpl.content.firstElementChild.cloneNode(true);
+    document.getElementById('cuerpoLineas').appendChild(fila);
+    recalcularTotales();
+}
+
+function quitarLinea(btn) {
+    const filas = document.querySelectorAll('#cuerpoLineas .fila-linea');
+    if (filas.length <= 1) {
+        btn.closest('tr').querySelectorAll('input').forEach(i => { if (i.type !== 'number') i.value = ''; });
+        return;
+    }
+    btn.closest('tr').remove();
+    recalcularTotales();
+}
+
+function recalcularTotales() {
+    let base = 0, iva = 0;
+    document.querySelectorAll('#cuerpoLineas .fila-linea').forEach(fila => {
+        const cantidad = parseFloat(fila.querySelector('.campo-cantidad').value) || 0;
+        const precio = parseFloat(fila.querySelector('.campo-precio').value) || 0;
+        const tipoIva = parseFloat(fila.querySelector('.campo-iva').value) || 0;
+        const importe = cantidad * precio;
+        const cuotaIva = importe * tipoIva / 100;
+        fila.querySelector('.campo-importe').textContent = importe.toFixed(2) + ' €';
+        base += importe;
+        iva += cuotaIva;
+    });
+    const irpf = parseFloat(document.getElementById('totalIrpf').value) || 0;
+    document.getElementById('totalBase').textContent = base.toFixed(2) + ' €';
+    document.getElementById('totalIva').textContent = iva.toFixed(2) + ' €';
+    const filaIrpf = document.getElementById('filaIrpf');
+    filaIrpf.classList.toggle('d-flex', irpf > 0);
+    filaIrpf.classList.toggle('d-none', irpf <= 0);
+    if (irpf > 0) {
+        document.getElementById('totalIrpfPreview').textContent = '-' + irpf.toFixed(2) + ' €';
+    }
+    document.getElementById('totalGeneral').textContent = (base + iva - irpf).toFixed(2) + ' €';
+}
+
+document.getElementById('formFactura').addEventListener('input', recalcularTotales);
+recalcularTotales();
+</script>
+
+{% endblock %}

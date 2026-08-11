@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Verificar facturas — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/facturacion" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-link-45deg me-2"></i>Verificar integridad de la cadena</h5>
+</div>
+
+<p class="text-muted small">
+    Cada factura emitida guarda la huella de la anterior. Si alguna se ha editado o borrado por fuera de
+    la aplicación (directamente en la base de datos), la cadena deja de cuadrar a partir de ese punto.
+</p>
+
+{% if resultado %}
+<div class="alert {% if todas_integras %}alert-success{% else %}alert-danger{% endif %} small py-2">
+    {% if todas_integras %}
+    <i class="bi bi-shield-check me-1"></i>Cadena íntegra — {{ resultado | length }} factura(s) emitida(s) comprobadas.
+    {% else %}
+    <i class="bi bi-shield-exclamation me-1"></i>Se ha detectado una rotura en la cadena — revisa las filas marcadas en rojo.
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle small">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nº</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th class="text-end">Total</th>
+                        <th>Estado</th>
+                        <th>Integridad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in resultado %}
+                    <tr class="{% if not r.integra %}table-danger{% endif %}">
+                        <td class="fw-semibold">
+                            <a href="/facturacion/{{ r.factura.id }}">{{ r.factura.numero }}</a>
+                        </td>
+                        <td class="text-muted">{{ r.factura.fecha_emision.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ r.factura.cliente.nombre if r.factura.cliente else '—' }}</td>
+                        <td class="text-end">{{ "%.2f €"|format(r.factura.total) }}</td>
+                        <td>{{ r.factura.estado | capitalize }}</td>
+                        <td>
+                            {% if r.integra %}
+                            <span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-x-lg"></i> Rota</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-4 small">
+    <i class="bi bi-link-45deg fs-3 d-block mb-2 opacity-25"></i>
+    Todavía no hay facturas emitidas
+</div>
+{% endif %}
+
+{% endblock %}

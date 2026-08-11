@@ -45,7 +45,7 @@ class Settings:
     # módulos opcionales. Si no, lista separada por comas, p.ej.:
     #   MODULOS=queseria,analisis_leche,maquinaria
     # Animales/Reproducción/Sanidad/Lotes/Tareas son el núcleo y siempre están activos.
-    MODULOS_DISPONIBLES = {"queseria", "analisis_leche", "maquinaria", "alimentacion", "economia", "cuaderno", "agroturismo"}
+    MODULOS_DISPONIBLES = {"queseria", "analisis_leche", "maquinaria", "alimentacion", "economia", "cuaderno", "agroturismo", "facturacion"}
     _modulos_env = os.getenv("MODULOS", "todos").strip().lower()
     if _modulos_env in ("", "todos", "all"):
         MODULOS: set[str] = set(MODULOS_DISPONIBLES)

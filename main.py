@@ -23,7 +23,7 @@ from services.stock_calculator import resumen_stock
 from scheduler import iniciar_scheduler
 
 from fastapi.responses import JSONResponse
-from routers import auth, animales, reproduccion, alimentacion, sanidad, lotes, economia, exportacion, maestros, cuaderno, tareas, presupuesto, queseria, trazabilidad, analisis_leche, maquinaria, agroturismo
+from routers import auth, animales, reproduccion, alimentacion, sanidad, lotes, economia, exportacion, maestros, cuaderno, tareas, presupuesto, queseria, trazabilidad, analisis_leche, maquinaria, agroturismo, facturacion
 
 
 @asynccontextmanager
@@ -93,6 +93,8 @@ if "maquinaria" in _modulos:
     app.include_router(maquinaria.router)
 if "agroturismo" in _modulos:
     app.include_router(agroturismo.router)
+if "facturacion" in _modulos:
+    app.include_router(facturacion.router)
 
 
 @app.get("/health")

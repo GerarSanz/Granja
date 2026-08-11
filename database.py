@@ -25,7 +25,7 @@ def get_db():
 
 
 def create_tables():
-    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario, maestros, cuaderno, tarea, presupuesto, queseria, analisis_leche, maquinaria, agroturismo
+    from models import animal, reproduccion, lote, sanidad, alimentacion, economia, alerta, usuario, maestros, cuaderno, tarea, presupuesto, queseria, analisis_leche, maquinaria, agroturismo, facturacion
     _migrate_esquema_queseria_v2()
     _migrate_lotes_queso_piezas_nullable()
     _migrate_tratamientos_animal_nullable()

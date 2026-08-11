@@ -1,0 +1,39 @@
+{# Espera una variable `valores` (dict). #}
+<div class="row g-2">
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Nombre / razón social <span class="text-danger">*</span></label>
+        <input type="text" name="nombre" class="form-control form-control-sm" value="{{ valores.get('nombre', '') }}" required>
+    </div>
+    <div class="col-6">
+        <label class="form-label small fw-semibold">NIF / CIF</label>
+        <input type="text" name="nif" class="form-control form-control-sm" value="{{ valores.get('nif', '') }}">
+    </div>
+    <div class="col-6">
+        <label class="form-label small fw-semibold">Teléfono</label>
+        <input type="text" name="telefono" class="form-control form-control-sm" value="{{ valores.get('telefono', '') }}">
+    </div>
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Dirección</label>
+        <input type="text" name="direccion" class="form-control form-control-sm" value="{{ valores.get('direccion', '') }}">
+    </div>
+    <div class="col-4">
+        <label class="form-label small fw-semibold">C.P.</label>
+        <input type="text" name="cp" class="form-control form-control-sm" value="{{ valores.get('cp', '') }}">
+    </div>
+    <div class="col-4">
+        <label class="form-label small fw-semibold">Localidad</label>
+        <input type="text" name="localidad" class="form-control form-control-sm" value="{{ valores.get('localidad', '') }}">
+    </div>
+    <div class="col-4">
+        <label class="form-label small fw-semibold">Provincia</label>
+        <input type="text" name="provincia" class="form-control form-control-sm" value="{{ valores.get('provincia', '') }}">
+    </div>
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Email</label>
+        <input type="email" name="email" class="form-control form-control-sm" value="{{ valores.get('email', '') }}">
+    </div>
+    <div class="col-12">
+        <label class="form-label small fw-semibold">Observaciones</label>
+        <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ valores.get('observaciones', '') }}">
+    </div>
+</div>

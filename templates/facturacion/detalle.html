@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Factura {{ factura.numero }} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <a href="/facturacion" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-receipt me-2"></i>Factura {{ factura.numero }}</h5>
+    <span class="badge
+        {% if factura.estado == 'pagada' %}bg-success
+        {% elif factura.estado == 'emitida' %}bg-warning text-dark
+        {% elif factura.estado == 'anulada' %}bg-danger
+        {% else %}bg-secondary{% endif %}">
+        {{ factura.estado | capitalize }}
+    </span>
+    <div class="ms-auto d-flex gap-2">
+        <a href="/facturacion/{{ factura.id }}/pdf" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
+        </a>
+        {% if factura.estado == 'emitida' %}
+        <form method="post" action="/facturacion/{{ factura.id }}/marcar-pagada">
+            <input type="hidden" name="fecha_pago" value="">
+            <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-cash-coin me-1"></i>Marcar pagada
+            </button>
+        </form>
+        {% endif %}
+        {% if factura.estado in ['emitida', 'pagada'] %}
+        <form method="post" action="/facturacion/{{ factura.id }}/anular"
+              onsubmit="return confirm('¿Anular esta factura? No se puede deshacer.')">
+            <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-x-circle me-1"></i>Anular
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header py-2 fw-semibold">Cliente</div>
+            <div class="card-body small">
+                <div class="fw-semibold">{{ factura.cliente.nombre }}</div>
+                {% if factura.cliente.nif %}<div class="text-muted">NIF: {{ factura.cliente.nif }}</div>{% endif %}
+                {% if factura.cliente.direccion %}<div class="text-muted">{{ factura.cliente.direccion }}</div>{% endif %}
+                {% if factura.cliente.localidad %}<div class="text-muted">{{ factura.cliente.cp }} {{ factura.cliente.localidad }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header py-2 fw-semibold">Datos</div>
+            <div class="card-body small">
+                <dl class="row mb-0">
+                    <dt class="col-6 text-muted">Fecha</dt>
+                    <dd class="col-6">{{ factura.fecha_emision.strftime('%d/%m/%Y') }}</dd>
+                    <dt class="col-6 text-muted">Forma de pago</dt>
+                    <dd class="col-6">{{ factura.forma_pago or '—' }}</dd>
+                    {% if factura.fecha_pago %}
+                    <dt class="col-6 text-muted">Fecha de pago</dt>
+                    <dd class="col-6">{{ factura.fecha_pago.strftime('%d/%m/%Y') }}</dd>
+                    {% endif %}
+                </dl>
+                {% if factura.hash_actual %}
+                <hr class="my-2">
+                <div class="text-muted" style="font-size:.7rem; word-break:break-all;">
+                    <i class="bi bi-link-45deg me-1"></i>Huella: {{ factura.hash_actual[:24] }}…
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-header py-2 fw-semibold">Líneas</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="text-end">Cant.</th>
+                                <th class="text-end">Precio ud.</th>
+                                <th class="text-end">IVA</th>
+                                <th class="text-end">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for l in factura.lineas %}
+                            <tr>
+                                <td>{{ l.concepto }}</td>
+                                <td class="text-end">{{ l.cantidad }}</td>
+                                <td class="text-end">{{ "%.2f €"|format(l.precio_unitario) }}</td>
+                                <td class="text-end">{{ l.tipo_iva }}%</td>
+                                <td class="text-end">{{ "%.2f €"|format(l.importe) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-3 border-top">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">Base imponible</span>
+                        <span>{{ "%.2f €"|format(factura.base_imponible) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">IVA</span>
+                        <span>{{ "%.2f €"|format(factura.total_iva) }}</span>
+                    </div>
+                    {% if factura.total_irpf %}
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">Retención IRPF</span>
+                        <span>-{{ "%.2f €"|format(factura.total_irpf) }}</span>
+                    </div>
+                    {% endif %}
+                    <hr class="my-1">
+                    <div class="d-flex justify-content-between fw-bold fs-5">
+                        <span>TOTAL</span>
+                        <span>{{ "%.2f €"|format(factura.total) }}</span>
+                    </div>
+                </div>
+                {% if factura.observaciones %}
+                <div class="p-3 border-top small text-muted">{{ factura.observaciones }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
