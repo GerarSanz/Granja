@@ -118,6 +118,10 @@
                                 <a href="/maquinaria" class="text-decoration-none text-dark">
                                     <small>{{ alerta.mensaje }}</small>
                                 </a>
+                                {% elif alerta.indicador_bienestar_id %}
+                                <a href="/bienestar" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
                                 {% else %}
                                 <small>{{ alerta.mensaje }}</small>
                                 {% endif %}

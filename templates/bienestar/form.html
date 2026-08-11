@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Nueva auditoría de bienestar — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/bienestar" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart me-2"></i>Nueva auditoría de bienestar</h5>
+</div>
+
+<form method="post" action="/bienestar/nueva" id="formAuditoria">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha" class="form-control form-control-sm" value="{{ hoy.isoformat() }}" required>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-semibold">Tipo</label>
+                    <select name="tipo" class="form-select form-select-sm">
+                        {% for t in tipos %}
+                        <option value="{{ t.value }}">{{ t.value | replace('_',' ') | capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-semibold">Ámbito</label>
+                    <select name="lote_id" class="form-select form-select-sm">
+                        <option value="">Toda la explotación</option>
+                        {% for l in lotes %}
+                        <option value="{{ l.id }}">{{ l.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small fw-semibold">Responsable</label>
+                    <input type="text" name="responsable" class="form-control form-control-sm">
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-semibold">Observaciones generales</label>
+                    <textarea name="observaciones_generales" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-list-check me-2 text-success"></i>Checklist</span>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">Puntuación media: <strong id="mediaPreview">—</strong></small>
+                <button type="button" class="btn btn-xs btn-outline-success" onclick="agregarIndicador()">
+                    <i class="bi bi-plus-lg me-1"></i>Añadir indicador
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="tablaIndicadores">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:130px;">Categoría</th>
+                            <th style="min-width:220px;">Indicador</th>
+                            <th style="width:90px;">Puntuación</th>
+                            <th style="min-width:160px;">Observaciones</th>
+                            <th style="min-width:160px;">Acción correctora</th>
+                            <th style="width:130px;">Fecha límite</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoIndicadores">
+                        {% for categoria, texto in indicadores_defecto %}
+                        <tr class="fila-indicador">
+                            <td>
+                                <select name="categoria" class="form-select form-select-sm">
+                                    <option value="alimentacion" {% if categoria.value == 'alimentacion' %}selected{% endif %}>Alimentación</option>
+                                    <option value="alojamiento" {% if categoria.value == 'alojamiento' %}selected{% endif %}>Alojamiento</option>
+                                    <option value="salud" {% if categoria.value == 'salud' %}selected{% endif %}>Salud</option>
+                                    <option value="comportamiento" {% if categoria.value == 'comportamiento' %}selected{% endif %}>Comportamiento</option>
+                                </select>
+                            </td>
+                            <td><input type="text" name="indicador" class="form-control form-control-sm" value="{{ texto }}"></td>
+                            <td>
+                                <select name="puntuacion" class="form-select form-select-sm campo-puntuacion">
+                                    <option value="">—</option>
+                                    {% for n in range(0, 11) %}
+                                    <option value="{{ n }}">{{ n }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" name="obs_indicador" class="form-control form-control-sm"></td>
+                            <td><input type="text" name="accion_correctora" class="form-control form-control-sm" placeholder="Si no cumple, ¿qué hay que hacer?"></td>
+                            <td><input type="date" name="fecha_limite_accion" class="form-control form-control-sm" value=""></td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="quitarIndicador(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+        <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-save me-1"></i>Guardar auditoría
+        </button>
+    </div>
+</form>
+
+<template id="plantillaIndicador">
+    <tr class="fila-indicador">
+        <td>
+            <select name="categoria" class="form-select form-select-sm">
+                <option value="alimentacion">Alimentación</option>
+                <option value="alojamiento">Alojamiento</option>
+                <option value="salud">Salud</option>
+                <option value="comportamiento">Comportamiento</option>
+            </select>
+        </td>
+        <td><input type="text" name="indicador" class="form-control form-control-sm" placeholder="Indicador"></td>
+        <td>
+            <select name="puntuacion" class="form-select form-select-sm campo-puntuacion">
+                <option value="">—</option>
+                {% for n in range(0, 11) %}
+                <option value="{{ n }}">{{ n }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><input type="text" name="obs_indicador" class="form-control form-control-sm"></td>
+        <td><input type="text" name="accion_correctora" class="form-control form-control-sm" placeholder="Si no cumple, ¿qué hay que hacer?"></td>
+        <td><input type="date" name="fecha_limite_accion" class="form-control form-control-sm"></td>
+        <td class="text-center">
+            <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="quitarIndicador(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+function agregarIndicador() {
+    const tpl = document.getElementById('plantillaIndicador');
+    const fila = tpl.content.firstElementChild.cloneNode(true);
+    document.getElementById('cuerpoIndicadores').appendChild(fila);
+    fila.querySelector('.campo-puntuacion').addEventListener('change', recalcularMedia);
+}
+
+function quitarIndicador(btn) {
+    btn.closest('tr').remove();
+    recalcularMedia();
+}
+
+function recalcularMedia() {
+    const valores = Array.from(document.querySelectorAll('.campo-puntuacion'))
+        .map(s => s.value).filter(v => v !== '').map(Number);
+    const el = document.getElementById('mediaPreview');
+    if (!valores.length) { el.textContent = '—'; return; }
+    const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+    el.textContent = (media * 10).toFixed(0) + '%';
+}
+
+document.querySelectorAll('.campo-puntuacion').forEach(s => s.addEventListener('change', recalcularMedia));
+</script>
+
+{% endblock %}

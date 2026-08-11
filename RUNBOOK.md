@@ -74,7 +74,10 @@ encadenado con huella entre facturas emitidas — ver aviso sobre VERI*FACTU
 más abajo), `rentabilidad` (panel de ingresos/gastos/margen por año y por
 animal — combina Economía, Quesería y Facturación; funciona con datos
 parciales si alguno de esos módulos no está activo, pero da su mejor
-resultado con `economia` activado).
+resultado con `economia` activado), `bienestar` (auditorías de bienestar
+animal con checklist por alimentación/alojamiento/salud/comportamiento,
+puntuación 0-10 por indicador, acciones correctoras con fecha límite y
+aviso automático si una acción queda vencida sin resolver).
 
 El núcleo — Animales, Reproducción, Sanidad, Lotes/Parcelas, Tareas — está
 siempre incluido, no es seleccionable.

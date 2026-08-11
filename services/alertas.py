@@ -7,6 +7,7 @@ from models.alerta import Alerta, TipoAlerta, NivelAlerta
 from models.tarea import Tarea
 from models.queseria import LoteQueso
 from models.maquinaria import Maquina, RevisionMaquina
+from models.bienestar import IndicadorBienestar
 from services.telegram import enviar_telegram
 from config import get_settings
 import asyncio
@@ -269,6 +270,30 @@ def generar_alertas_diarias(db: Session):
                         mensaje=msg,
                         fecha_disparo=hoy,
                     ))
+
+    # --- Acciones correctoras de bienestar animal vencidas ---
+    acciones_pendientes = db.query(IndicadorBienestar).filter(
+        IndicadorBienestar.accion_correctora.isnot(None),
+        IndicadorBienestar.accion_resuelta == False,
+        IndicadorBienestar.fecha_limite_accion.isnot(None),
+        IndicadorBienestar.fecha_limite_accion < hoy,
+    ).all()
+
+    for ind in acciones_pendientes:
+        ya_existe = db.query(Alerta).filter(
+            Alerta.tipo == TipoAlerta.bienestar_accion_vencida,
+            Alerta.indicador_bienestar_id == ind.id,
+        ).first()
+        if not ya_existe:
+            dias_vencida = (hoy - ind.fecha_limite_accion).days
+            msg = f"ACCION BIENESTAR VENCIDA: {ind.indicador} — vencio hace {dias_vencida} dia(s)"
+            alertas_nuevas.append(Alerta(
+                tipo=TipoAlerta.bienestar_accion_vencida,
+                nivel=NivelAlerta.urgente,
+                indicador_bienestar_id=ind.id,
+                mensaje=msg,
+                fecha_disparo=hoy,
+            ))
 
     # Guardar alertas y enviar Telegram
     for alerta in alertas_nuevas:

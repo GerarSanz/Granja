@@ -18,7 +18,7 @@ from database import SessionLocal
 # al no estar esa clase registrada todavía.
 from models import (animal, reproduccion, lote, sanidad, alimentacion, economia,
                      alerta, usuario, maestros, cuaderno, tarea, presupuesto,
-                     queseria, analisis_leche, maquinaria, agroturismo, facturacion)
+                     queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar)
 from models.usuario import Usuario, RolUsuario
 from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
                           AbonoParcela, TratamientoParcela, SubParcela, OcupacionSubParcela)
@@ -36,6 +36,7 @@ from models.cuaderno import ConfigExplotacion
 from models.presupuesto import PresupuestoPartida
 from models.agroturismo import ActividadTurismo, ReservaTurismo, EstadoReserva
 from models.facturacion import Cliente, Factura, LineaFactura, EstadoFactura
+from models.bienestar import AuditoriaBienestar, IndicadorBienestar
 from services.facturacion_hash import calcular_hash, siguiente_numero
 from auth import hash_password
 
@@ -48,7 +49,8 @@ DEMO_PASSWORD = "demo1234"
 def _limpiar(db):
     """Borra todos los datos de la explotación (no toca especies/razas maestras)."""
     for modelo in [
-        Alerta, MovimientoQueso, LoteQueso, CuajoProducto, Estanteria,
+        Alerta, IndicadorBienestar, AuditoriaBienestar,
+        MovimientoQueso, LoteQueso, CuajoProducto, Estanteria,
         AnalisisLeche, RevisionMaquina, Maquina,
         Tratamiento, Desparasitacion, PlanVacunal,
         Venta, Gasto, CompraAlimento, StockMovimiento, RacionTipo, Alimento,
@@ -469,6 +471,49 @@ def _sembrar(db):
     db.add(PresupuestoPartida(anio=anio, tipo="gasto", categoria=CategoriaGasto.alimentacion, importe_previsto=5200))
     db.add(PresupuestoPartida(anio=anio, tipo="gasto", categoria=CategoriaGasto.sanidad, importe_previsto=1200))
     db.add(PresupuestoPartida(anio=anio, tipo="gasto", categoria=CategoriaGasto.maquinaria, importe_previsto=1800))
+
+    # --- Bienestar animal ---
+    auditoria_previa = AuditoriaBienestar(
+        fecha=hoy - timedelta(days=60), tipo="autoevaluacion",
+        responsable="Titular de la explotación",
+        observaciones_generales="Revisión trimestral de rutina, sin incidencias graves.",
+    )
+    db.add(auditoria_previa)
+    db.flush()
+    db.add_all([
+        IndicadorBienestar(auditoria_id=auditoria_previa.id, categoria="alimentacion",
+                            indicador="Acceso a agua limpia y en cantidad suficiente", puntuacion=10, orden=0),
+        IndicadorBienestar(auditoria_id=auditoria_previa.id, categoria="alojamiento",
+                            indicador="Cama o suelo limpio, seco y no resbaladizo", puntuacion=7,
+                            observaciones="Cuadra de recría algo húmeda tras las lluvias",
+                            accion_correctora="Añadir más paja y revisar el desagüe de la cuadra de recría",
+                            fecha_limite_accion=hoy - timedelta(days=40), accion_resuelta=True, orden=1),
+        IndicadorBienestar(auditoria_id=auditoria_previa.id, categoria="salud",
+                            indicador="Ausencia de cojeras", puntuacion=9, orden=2),
+        IndicadorBienestar(auditoria_id=auditoria_previa.id, categoria="comportamiento",
+                            indicador="Acceso a pastoreo o espacio exterior", puntuacion=10, orden=3),
+    ])
+
+    auditoria_reciente = AuditoriaBienestar(
+        fecha=hoy - timedelta(days=10), tipo="autoevaluacion", lote_id=lote_produccion.id,
+        responsable="Titular de la explotación",
+        observaciones_generales="Lote de producción — se detecta una vaca con cojera leve a revisar.",
+    )
+    db.add(auditoria_reciente)
+    db.flush()
+    db.add_all([
+        IndicadorBienestar(auditoria_id=auditoria_reciente.id, categoria="alimentacion",
+                            indicador="Ración adecuada al estado productivo de cada grupo", puntuacion=9, orden=0),
+        IndicadorBienestar(auditoria_id=auditoria_reciente.id, categoria="alojamiento",
+                            indicador="Espacio suficiente para tumbarse y moverse con libertad", puntuacion=8, orden=1),
+        IndicadorBienestar(auditoria_id=auditoria_reciente.id, categoria="salud",
+                            indicador="Ausencia de cojeras", puntuacion=5,
+                            observaciones="Una vaca del lote camina con cojera leve en la pata trasera izquierda",
+                            accion_correctora="Revisar la pezuña y avisar al podólogo si no mejora",
+                            fecha_limite_accion=hoy - timedelta(days=3), orden=2),
+        IndicadorBienestar(auditoria_id=auditoria_reciente.id, categoria="comportamiento",
+                            indicador="Ausencia de signos de miedo ante la presencia humana", puntuacion=9, orden=3),
+    ])
 
     # --- Tareas ---
     db.add(Tarea(titulo="Revisar cerca prado del río", prioridad="media",

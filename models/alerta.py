@@ -16,6 +16,7 @@ class TipoAlerta(str, enum.Enum):
     queso_listo = "queso_listo"
     revision_proxima = "revision_proxima"
     revision_vencida = "revision_vencida"
+    bienestar_accion_vencida = "bienestar_accion_vencida"
 
 
 class NivelAlerta(str, enum.Enum):
@@ -34,6 +35,7 @@ class Alerta(Base):
     tarea_id = Column(Integer, ForeignKey("tareas.id"), nullable=True)
     lote_queso_id = Column(Integer, ForeignKey("lotes_queso.id"), nullable=True)
     maquina_id = Column(Integer, ForeignKey("maquinas.id"), nullable=True)
+    indicador_bienestar_id = Column(Integer, ForeignKey("indicadores_bienestar.id"), nullable=True)
     mensaje = Column(Text, nullable=False)
     fecha_disparo = Column(Date, nullable=False)
     leida = Column(Boolean, default=False)

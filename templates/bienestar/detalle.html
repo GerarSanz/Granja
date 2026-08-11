@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Auditoría {{ auditoria.fecha.strftime('%d/%m/%Y') }} — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <a href="/bienestar" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success">
+        <i class="bi bi-heart me-2"></i>Auditoría del {{ auditoria.fecha.strftime('%d/%m/%Y') }}
+    </h5>
+    {% if auditoria.puntuacion_pct is not none %}
+    <span class="badge {% if auditoria.puntuacion_pct < 60 %}bg-danger{% elif auditoria.puntuacion_pct < 80 %}bg-warning text-dark{% else %}bg-success{% endif %} fs-6">
+        {{ "%.0f"|format(auditoria.puntuacion_pct) }}%
+    </span>
+    {% endif %}
+    <div class="ms-auto d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarCabecera">
+            <i class="bi bi-pencil me-1"></i>Editar
+        </button>
+        <form method="post" action="/bienestar/{{ auditoria.id }}/eliminar" onsubmit="return confirm('¿Eliminar esta auditoría y todo su checklist?')">
+            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Eliminar</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-2 mb-3 small text-muted">
+    <div class="col-auto"><i class="bi bi-tag me-1"></i>{{ auditoria.tipo | replace('_',' ') | capitalize }}</div>
+    <div class="col-auto"><i class="bi bi-map me-1"></i>{{ auditoria.lote.nombre if auditoria.lote else 'Toda la explotación' }}</div>
+    {% if auditoria.responsable %}<div class="col-auto"><i class="bi bi-person me-1"></i>{{ auditoria.responsable }}</div>{% endif %}
+</div>
+
+{% if auditoria.observaciones_generales %}
+<div class="alert alert-light border small mb-3">{{ auditoria.observaciones_generales }}</div>
+{% endif %}
+
+{% set acciones = auditoria.acciones_pendientes %}
+{% if acciones %}
+<div class="alert alert-warning small mb-3">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>{{ acciones | length }}</strong> acción{{ 'es' if acciones|length != 1 else '' }} correctora{{ 's' if acciones|length != 1 else '' }} pendiente{{ 's' if acciones|length != 1 else '' }} de resolver.
+</div>
+{% endif %}
+
+{% for cat in categorias %}
+{% set inds = indicadores_por_categoria.get(cat.value, []) %}
+{% if inds %}
+<div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">{{ cat.value | capitalize }}</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:200px;">Indicador</th>
+                        <th style="width:80px;">Puntos</th>
+                        <th class="d-none d-md-table-cell">Observaciones</th>
+                        <th>Acción correctora</th>
+                        <th style="width:110px;">Estado</th>
+                        <th style="width:80px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ind in inds %}
+                    <tr>
+                        <td>{{ ind.indicador }}</td>
+                        <td>
+                            {% if ind.puntuacion is not none %}
+                            <span class="badge {% if ind.puntuacion < 6 %}bg-danger{% elif ind.puntuacion < 8 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ ind.puntuacion }}/10
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="d-none d-md-table-cell text-muted small">{{ ind.observaciones or '—' }}</td>
+                        <td class="small">
+                            {% if ind.accion_correctora %}
+                            {{ ind.accion_correctora }}
+                            {% if ind.fecha_limite_accion %}
+                            <br><small class="{% if not ind.accion_resuelta and ind.fecha_limite_accion < hoy %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                Límite: {{ ind.fecha_limite_accion.strftime('%d/%m/%Y') }}
+                            </small>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ind.accion_correctora %}
+                            <form method="post" action="/bienestar/indicador/{{ ind.id }}/resolver">
+                                <button type="submit" class="btn btn-sm {% if ind.accion_resuelta %}btn-success{% else %}btn-outline-warning{% endif %}">
+                                    {% if ind.accion_resuelta %}<i class="bi bi-check-circle-fill me-1"></i>Resuelta{% else %}<i class="bi bi-clock-history me-1"></i>Pendiente{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-xs btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#modalIndicador{{ ind.id }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="modalIndicador{{ ind.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h6 class="modal-title"><i class="bi bi-pencil me-2 text-success"></i>{{ ind.indicador }}</h6>
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="/bienestar/indicador/{{ ind.id }}/editar">
+                                    <div class="modal-body">
+                                        <div class="row g-2">
+                                            <div class="col-6 col-md-3">
+                                                <label class="form-label small fw-semibold">Puntuación (0-10)</label>
+                                                <select name="puntuacion" class="form-select form-select-sm">
+                                                    <option value="">—</option>
+                                                    {% for n in range(0, 11) %}
+                                                    <option value="{{ n }}" {% if ind.puntuacion == n %}selected{% endif %}>{{ n }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-9">
+                                                <label class="form-label small fw-semibold">Observaciones</label>
+                                                <input type="text" name="observaciones" class="form-control form-control-sm" value="{{ ind.observaciones or '' }}">
+                                            </div>
+                                            <div class="col-12 col-md-8">
+                                                <label class="form-label small fw-semibold">Acción correctora</label>
+                                                <input type="text" name="accion_correctora" class="form-control form-control-sm" value="{{ ind.accion_correctora or '' }}" placeholder="Si no cumple, ¿qué hay que hacer?">
+                                            </div>
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label small fw-semibold">Fecha límite</label>
+                                                <input type="date" name="fecha_limite_accion" class="form-control form-control-sm" value="{{ ind.fecha_limite_accion.isoformat() if ind.fecha_limite_accion else '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer py-2">
+                                        <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Modal: editar cabecera -->
+<div class="modal fade" id="modalEditarCabecera" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-pencil me-2 text-success"></i>Editar auditoría</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/bienestar/{{ auditoria.id }}/editar">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" value="{{ auditoria.fecha.isoformat() }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm">
+                                {% for t in tipos %}
+                                <option value="{{ t.value }}" {% if t.value == auditoria.tipo %}selected{% endif %}>{{ t.value | replace('_',' ') | capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ámbito</label>
+                            <select name="lote_id" class="form-select form-select-sm">
+                                <option value="">Toda la explotación</option>
+                                {% for l in lotes %}
+                                <option value="{{ l.id }}" {% if auditoria.lote_id == l.id %}selected{% endif %}>{{ l.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Responsable</label>
+                            <input type="text" name="responsable" class="form-control form-control-sm" value="{{ auditoria.responsable or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Observaciones generales</label>
+                            <textarea name="observaciones_generales" class="form-control form-control-sm" rows="2">{{ auditoria.observaciones_generales or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

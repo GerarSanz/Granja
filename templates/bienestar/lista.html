@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Bienestar animal — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-heart me-2"></i>Bienestar animal</h5>
+    <a href="/bienestar/nueva" class="btn btn-success btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nueva auditoría
+    </a>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if ultima and ultima.puntuacion_pct is not none and ultima.puntuacion_pct < 60 %}text-danger{% elif ultima and ultima.puntuacion_pct is not none and ultima.puntuacion_pct < 80 %}text-warning{% else %}text-success{% endif %}">
+                {% if ultima and ultima.puntuacion_pct is not none %}{{ "%.0f"|format(ultima.puntuacion_pct) }}%{% else %}—{% endif %}
+            </div>
+            <div class="kpi-label">Última puntuación</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-primary">{{ auditorias|length }}</div>
+            <div class="kpi-label">Auditorías realizadas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if acciones_abiertas > 0 %}text-danger{% else %}text-success{% endif %}">
+                {{ acciones_abiertas }}
+            </div>
+            <div class="kpi-label">Acciones pendientes</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-clipboard2-check me-2 text-success"></i>Histórico de auditorías
+    </div>
+    <div class="card-body p-0">
+        {% if auditorias %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-clickable mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th class="d-none d-md-table-cell">Ámbito</th>
+                        <th class="d-none d-md-table-cell">Responsable</th>
+                        <th>Puntuación</th>
+                        <th>Acciones pendientes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in auditorias %}
+                    <tr onclick="window.location='/bienestar/{{ a.id }}'">
+                        <td class="text-muted">{{ a.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td><small class="text-muted">{{ a.tipo | replace('_',' ') | capitalize }}</small></td>
+                        <td class="d-none d-md-table-cell">{{ a.lote.nombre if a.lote else 'Toda la explotación' }}</td>
+                        <td class="d-none d-md-table-cell text-muted small">{{ a.responsable or '—' }}</td>
+                        <td>
+                            {% if a.puntuacion_pct is not none %}
+                            <span class="badge {% if a.puntuacion_pct < 60 %}bg-danger{% elif a.puntuacion_pct < 80 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ "%.0f"|format(a.puntuacion_pct) }}%
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">sin evaluar</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set n_pendientes = a.acciones_pendientes | length %}
+                            {% if n_pendientes > 0 %}
+                            <span class="badge bg-warning text-dark">{{ n_pendientes }}</span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            Todavía no hay auditorías de bienestar registradas.
+            <br><a href="/bienestar/nueva" class="btn btn-success btn-sm mt-2">
+                <i class="bi bi-plus-lg me-1"></i>Registrar la primera
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
