@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, Float, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Date, DateTime, Float, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -26,7 +26,16 @@ class Cliente(Base):
     telefono = Column(String(30), nullable=True)
     observaciones = Column(Text, nullable=True)
 
+    # Seguimiento CRM (ver models/crm.py) — vive en Cliente para no duplicar
+    # la ficha del cliente en dos módulos distintos.
+    tipo_cliente = Column(String(20), nullable=True, default="otro")  # particular/tienda/restaurante/distribuidor/otro
+    activo = Column(Boolean, default=True)
+    proximo_contacto_fecha = Column(Date, nullable=True)
+    proximo_contacto_motivo = Column(String(300), nullable=True)
+
     facturas = relationship("Factura", back_populates="cliente")
+    interacciones = relationship("InteraccionCliente", back_populates="cliente",
+                                  cascade="all, delete-orphan", order_by="InteraccionCliente.fecha.desc()")
 
 
 class Factura(Base):

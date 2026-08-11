@@ -126,6 +126,10 @@
                                 <a href="/documentos" class="text-decoration-none text-dark">
                                     <small>{{ alerta.mensaje }}</small>
                                 </a>
+                                {% elif alerta.cliente_id %}
+                                <a href="/crm/clientes/{{ alerta.cliente_id }}" class="text-decoration-none text-dark">
+                                    <small>{{ alerta.mensaje }}</small>
+                                </a>
                                 {% else %}
                                 <small>{{ alerta.mensaje }}</small>
                                 {% endif %}

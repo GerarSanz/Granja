@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}CRM — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-people me-2"></i>CRM — Clientes</h5>
+    <a href="/facturacion" class="btn btn-outline-success btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
+    </a>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num text-primary">{{ total_clientes }}</div>
+            <div class="kpi-label">Clientes</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if contactos_vencidos > 0 %}text-danger{% else %}text-success{% endif %}">{{ contactos_vencidos }}</div>
+            <div class="kpi-label">Contactos pendientes</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-num {% if contactos_proximos > 0 %}text-warning{% else %}text-success{% endif %}">{{ contactos_proximos }}</div>
+            <div class="kpi-label">Próximos 7 días</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if filas %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-clickable mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Cliente</th>
+                        <th class="d-none d-md-table-cell">Tipo</th>
+                        <th class="text-end">Facturado</th>
+                        <th class="d-none d-md-table-cell">Última interacción</th>
+                        <th>Próximo contacto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr onclick="window.location='/crm/clientes/{{ f.cliente.id }}'">
+                        <td>
+                            {{ f.cliente.nombre }}
+                            {% if not f.cliente.activo %}<span class="badge bg-secondary ms-1">inactivo</span>{% endif %}
+                        </td>
+                        <td class="d-none d-md-table-cell"><small class="text-muted">{{ (f.cliente.tipo_cliente or 'otro') | capitalize }}</small></td>
+                        <td class="text-end fw-semibold text-success">{{ "%.0f €"|format(f.facturado_total) }}</td>
+                        <td class="d-none d-md-table-cell text-muted small">{{ f.ultima_interaccion.strftime('%d/%m/%Y') if f.ultima_interaccion else '—' }}</td>
+                        <td>
+                            {% if f.cliente.proximo_contacto_fecha %}
+                            <span class="badge {% if f.cliente.proximo_contacto_fecha < hoy %}bg-danger{% elif (f.cliente.proximo_contacto_fecha - hoy).days <= 7 %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}">
+                                {{ f.cliente.proximo_contacto_fecha.strftime('%d/%m/%Y') }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4 small">
+            Todavía no hay clientes.
+            <br><a href="/facturacion" class="btn btn-success btn-sm mt-2">Dar de alta el primero en Facturación</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

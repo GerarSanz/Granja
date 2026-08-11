@@ -9,6 +9,7 @@ from models.queseria import LoteQueso
 from models.maquinaria import Maquina, RevisionMaquina
 from models.bienestar import IndicadorBienestar
 from models.documento import Documento
+from models.facturacion import Cliente
 from services.telegram import enviar_telegram
 from config import get_settings
 import asyncio
@@ -336,6 +337,31 @@ def generar_alertas_diarias(db: Session):
                         mensaje=msg,
                         fecha_disparo=hoy,
                     ))
+
+    # --- Recordatorios de contacto CRM vencidos ---
+    clientes_seguimiento = db.query(Cliente).filter(
+        Cliente.activo == True,
+        Cliente.proximo_contacto_fecha.isnot(None),
+        Cliente.proximo_contacto_fecha < hoy,
+    ).all()
+
+    for cliente in clientes_seguimiento:
+        ya_existe = db.query(Alerta).filter(
+            Alerta.tipo == TipoAlerta.crm_contacto_vencido,
+            Alerta.cliente_id == cliente.id,
+            Alerta.fecha_disparo >= cliente.proximo_contacto_fecha,
+        ).first()
+        if not ya_existe:
+            dias = (hoy - cliente.proximo_contacto_fecha).days
+            motivo = cliente.proximo_contacto_motivo or "seguimiento pendiente"
+            msg = f"CONTACTO PENDIENTE: {cliente.nombre} — {motivo} (hace {dias} dia(s))"
+            alertas_nuevas.append(Alerta(
+                tipo=TipoAlerta.crm_contacto_vencido,
+                nivel=NivelAlerta.aviso,
+                cliente_id=cliente.id,
+                mensaje=msg,
+                fecha_disparo=hoy,
+            ))
 
     # Guardar alertas y enviar Telegram
     for alerta in alertas_nuevas:

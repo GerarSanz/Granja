@@ -19,6 +19,7 @@ class TipoAlerta(str, enum.Enum):
     bienestar_accion_vencida = "bienestar_accion_vencida"
     documento_proximo_caducar = "documento_proximo_caducar"
     documento_caducado = "documento_caducado"
+    crm_contacto_vencido = "crm_contacto_vencido"
 
 
 class NivelAlerta(str, enum.Enum):
@@ -39,6 +40,7 @@ class Alerta(Base):
     maquina_id = Column(Integer, ForeignKey("maquinas.id"), nullable=True)
     indicador_bienestar_id = Column(Integer, ForeignKey("indicadores_bienestar.id"), nullable=True)
     documento_id = Column(Integer, ForeignKey("documentos.id"), nullable=True)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)
     mensaje = Column(Text, nullable=False)
     fecha_disparo = Column(Date, nullable=False)
     leida = Column(Boolean, default=False)

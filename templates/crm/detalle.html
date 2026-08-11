@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}{{ cliente.nombre }} — CRM — GranjaManager{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <a href="/crm" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-person-vcard me-2"></i>{{ cliente.nombre }}</h5>
+    <span class="badge bg-light text-dark border">{{ (cliente.tipo_cliente or 'otro') | capitalize }}</span>
+    {% if not cliente.activo %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+    <a href="/facturacion" class="btn btn-sm btn-outline-secondary ms-auto">
+        <i class="bi bi-pencil me-1"></i>Editar datos fiscales
+    </a>
+</div>
+
+<div class="row g-3">
+
+    <!-- Datos de contacto -->
+    <div class="col-12 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header py-2 fw-semibold"><i class="bi bi-card-text me-2 text-secondary"></i>Datos de contacto</div>
+            <div class="card-body small">
+                {% if cliente.nif %}<div><strong>NIF:</strong> {{ cliente.nif }}</div>{% endif %}
+                {% if cliente.direccion %}<div>{{ cliente.direccion }}</div>{% endif %}
+                {% if cliente.cp or cliente.localidad %}<div>{{ cliente.cp or '' }} {{ cliente.localidad or '' }}{% if cliente.provincia %} ({{ cliente.provincia }}){% endif %}</div>{% endif %}
+                {% if cliente.email %}<div><i class="bi bi-envelope me-1 text-muted"></i>{{ cliente.email }}</div>{% endif %}
+                {% if cliente.telefono %}<div><i class="bi bi-telephone me-1 text-muted"></i>{{ cliente.telefono }}</div>{% endif %}
+                {% if not (cliente.nif or cliente.direccion or cliente.email or cliente.telefono) %}
+                <div class="text-muted">Sin datos de contacto todavía.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header py-2 fw-semibold"><i class="bi bi-cash-stack me-2 text-success"></i>Facturación</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span class="text-muted">Total facturado</span>
+                    <span class="fw-bold text-success">{{ "%.0f €"|format(facturado_total) }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Nº de facturas</span>
+                    <span>{{ facturas | length }}</span>
+                </div>
+                {% if facturas %}
+                <hr class="my-2">
+                <ul class="list-unstyled small mb-0">
+                    {% for f in facturas[:6] %}
+                    <li class="d-flex justify-content-between py-1 border-bottom">
+                        <a href="/facturacion/{{ f.id }}" class="text-decoration-none">
+                            {{ f.numero or 'Borrador' }} — {{ f.fecha_emision.strftime('%d/%m/%y') }}
+                        </a>
+                        <span>{{ "%.0f €"|format(f.total) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-2 fw-semibold"><i class="bi bi-bell me-2 text-warning"></i>Seguimiento</div>
+            <div class="card-body">
+                <form method="post" action="/crm/clientes/{{ cliente.id }}/seguimiento">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Tipo de cliente</label>
+                        <select name="tipo_cliente" class="form-select form-select-sm">
+                            {% for t in tipos_cliente %}
+                            <option value="{{ t.value }}" {% if t.value == cliente.tipo_cliente %}selected{% endif %}>{{ t.value | capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Próximo contacto</label>
+                        <input type="date" name="proximo_contacto_fecha" class="form-control form-control-sm" value="{{ cliente.proximo_contacto_fecha.isoformat() if cliente.proximo_contacto_fecha else '' }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Motivo</label>
+                        <input type="text" name="proximo_contacto_motivo" class="form-control form-control-sm" value="{{ cliente.proximo_contacto_motivo or '' }}" placeholder="Ej: llamar para renovar pedido">
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="activo" value="1" class="form-check-input" id="clienteActivo" {% if cliente.activo %}checked{% endif %}>
+                        <label class="form-check-label small" for="clienteActivo">Cliente activo</label>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interacciones -->
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-header py-2 fw-semibold"><i class="bi bi-chat-left-text me-2 text-primary"></i>Historial de interacciones</div>
+            <div class="card-body">
+                <form method="post" action="/crm/clientes/{{ cliente.id }}/interaccion" class="row g-2 mb-3 pb-3 border-bottom">
+                    <div class="col-4 col-md-3">
+                        <input type="date" name="fecha" class="form-control form-control-sm" value="{{ hoy.isoformat() }}" required>
+                    </div>
+                    <div class="col-4 col-md-3">
+                        <select name="tipo" class="form-select form-select-sm">
+                            {% for t in tipos_interaccion %}
+                            <option value="{{ t.value }}">{{ t.value | capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-4">
+                        <input type="text" name="texto" class="form-control form-control-sm" placeholder="¿Qué ha pasado?" required>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-plus-lg me-1"></i>Añadir
+                        </button>
+                    </div>
+                </form>
+
+                {% if cliente.interacciones %}
+                <ul class="list-group list-group-flush">
+                    {% for i in cliente.interacciones %}
+                    <li class="list-group-item d-flex align-items-start justify-content-between py-2 px-0">
+                        <div>
+                            <span class="badge bg-light text-dark border me-2">{{ i.tipo | capitalize }}</span>
+                            {{ i.texto }}
+                            <div class="text-muted" style="font-size:.75rem;">{{ i.fecha.strftime('%d/%m/%Y') }}</div>
+                        </div>
+                        <form method="post" action="/crm/interaccion/{{ i.id }}/eliminar" onsubmit="return confirm('¿Eliminar esta nota?')">
+                            <button type="submit" class="btn btn-sm btn-link text-muted p-0"><i class="bi bi-x-lg"></i></button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center text-muted py-3 small">Sin interacciones registradas todavía.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

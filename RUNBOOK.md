@@ -81,7 +81,11 @@ aviso automático si una acción queda vencida sin resolver), `documentos`
 (certificados ecológicos, inspecciones, contratos, seguros y licencias con
 archivo adjunto opcional — PDF, imagen, Word o Excel — y aviso automático
 antes de que caduquen, configurable con `ALERTA_DOCUMENTO_DIAS`, por
-defecto 60/30/15/7 días).
+defecto 60/30/15/7 días), `crm` (ficha de cliente con historial de
+facturación, notas de contacto y recordatorios de seguimiento con aviso si
+se pasa la fecha — **requiere `facturacion` activo**, ya que los clientes
+se dan de alta desde ahí; sin Facturación, el CRM no tiene dónde crear
+clientes).
 
 El núcleo — Animales, Reproducción, Sanidad, Lotes/Parcelas, Tareas — está
 siempre incluido, no es seleccionable.

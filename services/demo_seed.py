@@ -18,7 +18,7 @@ from database import SessionLocal
 # al no estar esa clase registrada todavía.
 from models import (animal, reproduccion, lote, sanidad, alimentacion, economia,
                      alerta, usuario, maestros, cuaderno, tarea, presupuesto,
-                     queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar, documento)
+                     queseria, analisis_leche, maquinaria, agroturismo, facturacion, bienestar, documento, crm)
 from models.usuario import Usuario, RolUsuario
 from models.lote import (Lote, Parcela, OcupacionParcela, AsignacionToro,
                           AbonoParcela, TratamientoParcela, SubParcela, OcupacionSubParcela)
@@ -38,6 +38,7 @@ from models.agroturismo import ActividadTurismo, ReservaTurismo, EstadoReserva
 from models.facturacion import Cliente, Factura, LineaFactura, EstadoFactura
 from models.bienestar import AuditoriaBienestar, IndicadorBienestar
 from models.documento import Documento
+from models.crm import InteraccionCliente
 from services.facturacion_hash import calcular_hash, siguiente_numero
 from auth import hash_password
 
@@ -50,7 +51,7 @@ DEMO_PASSWORD = "demo1234"
 def _limpiar(db):
     """Borra todos los datos de la explotación (no toca especies/razas maestras)."""
     for modelo in [
-        Alerta, IndicadorBienestar, AuditoriaBienestar, Documento,
+        Alerta, IndicadorBienestar, AuditoriaBienestar, Documento, InteraccionCliente,
         MovimientoQueso, LoteQueso, CuajoProducto, Estanteria,
         AnalisisLeche, RevisionMaquina, Maquina,
         Tratamiento, Desparasitacion, PlanVacunal,
@@ -408,12 +409,23 @@ def _sembrar(db):
     # --- Facturación ---
     cliente_horreo = Cliente(nombre="Tienda Ecológica El Hórreo", nif="B33123456",
                               direccion="Calle Uría 12", cp="33003", localidad="Oviedo", provincia="Asturias",
-                              email="pedidos@elhorreo.example", telefono="985123456")
+                              email="pedidos@elhorreo.example", telefono="985123456",
+                              tipo_cliente="tienda", proximo_contacto_fecha=hoy - timedelta(days=2),
+                              proximo_contacto_motivo="Llamar para el pedido mensual de queso")
     cliente_particular = Cliente(nombre="Marcos Fernández", nif="12345678Z",
                                   direccion="Camino de Arriba 4", cp="33420", localidad="Llanera",
-                                  provincia="Asturias", email="marcos.fdez@example.com")
+                                  provincia="Asturias", email="marcos.fdez@example.com",
+                                  tipo_cliente="particular", proximo_contacto_fecha=hoy + timedelta(days=5),
+                                  proximo_contacto_motivo="Confirmar si repite la visita a la quesería")
     db.add_all([cliente_horreo, cliente_particular])
     db.flush()
+
+    db.add(InteraccionCliente(cliente_id=cliente_horreo.id, fecha=hoy - timedelta(days=32), tipo="pedido",
+                               texto="Pedido de 8 piezas de queso curado ecológico"))
+    db.add(InteraccionCliente(cliente_id=cliente_horreo.id, fecha=hoy - timedelta(days=20), tipo="email",
+                               texto="Envío de factura y confirmación de entrega"))
+    db.add(InteraccionCliente(cliente_id=cliente_particular.id, fecha=hoy - timedelta(days=8), tipo="visita",
+                               texto="Visita guiada a la quesería con familiares"))
 
     factura1 = Factura(anio=hoy.year, fecha_emision=hoy - timedelta(days=20), cliente_id=cliente_horreo.id,
                         estado=EstadoFactura.borrador, forma_pago="Transferencia bancaria")
