@@ -102,17 +102,27 @@ fly secrets set MODULOS=maquinaria,alimentacion,economia,cuaderno --app <slug>
 ### ⚠️ Facturación y VERI*FACTU
 
 El módulo `facturacion` genera facturas reales (numeración correlativa,
-PDF, datos fiscales) con un encadenado de huellas (hash) entre facturas
-emitidas para detectar alteraciones a posteriori. Eso cubre la parte de
-"no alterable / trazable" del Reglamento VERI*FACTU, pero **no implementa
-el resto**: no genera el código QR con el formato que exige la AEAT ni
-envía las facturas en tiempo real (modalidad VERI*FACTU) ni genera el
-registro de facturación firmado (modalidad no verificable completa).
+PDF, datos fiscales), con encadenado de huellas (hash) entre facturas
+emitidas y **código QR normativo** en el PDF (`services/factura_qr.py`,
+formato verificado contra la documentación pública de la AEAT en
+sede.agenciatributaria.gob.es). Esto implementa la modalidad **"no
+verificable"** del Reglamento de facturación (RD 1007/2023, Orden
+HAC/1177/2024): no se envía nada a la AEAT en tiempo real, pero es una
+modalidad **legalmente válida por sí misma** — no es un parche a medias.
 
-Antes de activar este módulo para un cliente real que vaya a usarlo para
-facturar de verdad a sus clientes, hay que cerrar esa pieza (o confirmar
-con el cliente que asume la limitación mientras tanto). No lo actives sin
-hablarlo antes con el cliente.
+**Lo que sigue sin implementar** es la modalidad VERI*FACTU propiamente
+dicha: el envío en tiempo real del registro de facturación a la AEAT por
+su API SOAP con firma XAdES, que requiere el **certificado digital real
+del titular** (FNMT, representante o sello electrónico). Esto no es algo
+que se pueda construir de forma genérica de antemano — cada cliente
+necesitaría su propio certificado y una integración probada contra el
+entorno de pruebas de la AEAT antes de activarla en producción. Si un
+cliente lo pide, es un proyecto aparte, no una casilla más de este módulo.
+
+Antes de activar `facturacion` para un cliente real, confírmale que está
+en modalidad "no verificable" (ya lo indica el propio aviso dentro de la
+app) y que eso es suficiente para su caso salvo que necesite VERI*FACTU
+real.
 
 (el redeploy que dispara `fly secrets set` ya aplica el cambio; no hace
 falta hacer nada más — las tablas de los módulos desactivados simplemente

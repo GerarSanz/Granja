@@ -1,16 +1,25 @@
-"""Encadenado tipo VERI*FACTU simplificado para facturas emitidas.
+"""Encadenado + registro de facturación para el "modo no verificable" del
+Reglamento de facturación (RD 1007/2023, Orden HAC/1177/2024).
+
+El Reglamento permite dos modalidades de software de facturación:
+  - VERI*FACTU: cada factura se envía a la AEAT en tiempo real (requiere el
+    certificado digital del titular y su API SOAP). NO implementado aquí.
+  - No verificable: no se envía nada a la AEAT en tiempo real, pero el
+    registro de facturación tiene que ser íntegro, trazable e inalterable, y
+    la factura debe llevar el código QR normativo. Es lo que implementa este
+    módulo junto con services/factura_qr.py, y es una modalidad LEGALMENTE
+    VÁLIDA por sí misma, no un parche a medias.
 
 Cada factura emitida guarda el hash de la anterior + un hash propio calculado
 a partir de sus datos clave. Si alguien edita una factura ya emitida (o borra
 una del medio), la cadena deja de cuadrar y `verificar_cadena` lo detecta.
+`emitida_en` guarda la fecha y hora de generación del registro.
 
-Esto da una evidencia básica de que las facturas no se han alterado después
-de emitidas — es la pieza de "no alterable / trazable" del Reglamento
-VERI*FACTU. NO es una implementación completa: falta el código QR con el
-formato que exige la AEAT y el envío en tiempo real (modalidad VERI*FACTU) o
-el registro de facturación firmado (modalidad no verificable completa).
-Antes de vender esto como "cumple VERI*FACTU" a un cliente real hace falta
-cerrar esa parte.
+Lo que sigue sin implementar, y requeriría trabajo adicional (y el
+certificado digital real del titular, que esta app no puede generar ni
+sustituir) si algún día se quiere dar el salto a la modalidad VERI*FACTU:
+el envío en tiempo real del registro de facturación a la AEAT por su API
+SOAP con firma XAdES.
 """
 import hashlib
 from sqlalchemy.orm import Session

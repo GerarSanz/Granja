@@ -6,9 +6,10 @@ def generar_pdf_factura(factura, cliente, config) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
     from reportlab.lib.colors import HexColor, white
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from services.factura_qr import generar_qr_png, LEYENDA_NO_VERIFICABLE
 
     VERDE = HexColor("#198754")
     GRIS = HexColor("#f2f2f2")
@@ -90,6 +91,15 @@ def generar_pdf_factura(factura, cliente, config) -> bytes:
         Paragraph(f"Nº {numero_txt}", right_bold),
         Paragraph(f"Fecha: {factura.fecha_emision.strftime('%d/%m/%Y')}", right),
     ]
+    if factura.numero and c.nif:
+        qr_bytes = generar_qr_png(c.nif, factura.numero, factura.fecha_emision, factura.total)
+        qr_style = ParagraphStyle("qr_legend", parent=small, fontSize=6, leading=8,
+                                   alignment=TA_RIGHT, textColor=HexColor("#6c757d"))
+        cabecera_der += [
+            Spacer(1, 6),
+            Image(BytesIO(qr_bytes), width=2.8 * cm, height=2.8 * cm, hAlign="RIGHT"),
+            Paragraph(LEYENDA_NO_VERIFICABLE, qr_style),
+        ]
 
     t_cab = Table([[emisor_para, cabecera_der]], colWidths=[TW * 0.55, TW * 0.45])
     t_cab.setStyle(TableStyle([
@@ -177,6 +187,10 @@ def generar_pdf_factura(factura, cliente, config) -> bytes:
     if factura.hash_actual:
         story.append(Spacer(1, 16))
         story.append(Paragraph(f"Huella del documento: {factura.hash_actual[:32]}…", small))
+        story.append(Paragraph(
+            "Sistema de facturación: GranjaManager — modo no verificable (Reglamento RD 1007/2023).",
+            small,
+        ))
 
     doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
     return buffer.getvalue()
